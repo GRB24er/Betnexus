@@ -37,7 +37,7 @@ export default function BetSlip() {
       {!isOpen && (
         <button
           onClick={() => betSlipStore.toggleOpen()}
-          className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 z-50 gradient-green text-white rounded-full px-4 py-3 flex items-center gap-2 shadow-lg shadow-[#00d46e]/20 hover:shadow-[#00d46e]/40 transition-all"
+          className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 z-50 gradient-green text-white rounded-full px-5 py-3.5 flex items-center gap-2 shadow-lg shadow-[#00d46e]/20 hover:shadow-[#00d46e]/40 transition-all min-h-[48px]"
         >
           <Receipt className="w-5 h-5" />
           <span className="font-bold">{items.length}</span>
@@ -47,8 +47,8 @@ export default function BetSlip() {
 
       {/* Bet Slip Panel */}
       {isOpen && (
-        <div className="fixed bottom-0 right-0 lg:bottom-4 lg:right-4 lg:w-[380px] w-full z-50 slide-up">
-          <div className="bg-[#161925] border border-[#2a3050] lg:rounded-xl shadow-2xl max-h-[80vh] flex flex-col">
+        <div className="fixed bottom-14 right-0 left-0 sm:bottom-16 sm:left-auto sm:right-0 lg:bottom-4 lg:right-4 lg:left-auto lg:w-[380px] w-full sm:w-full z-50 slide-up">
+          <div className="bg-[#161925] border border-[#2a3050] lg:rounded-xl rounded-t-xl shadow-2xl max-h-[70vh] sm:max-h-[75vh] lg:max-h-[80vh] flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a3050]">
               <div className="flex items-center gap-3">
@@ -57,17 +57,17 @@ export default function BetSlip() {
                   {items.length}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => betSlipStore.clearAll()}
-                  className="p-1.5 text-[#5a6485] hover:text-[#ff4757] transition-colors"
+                  className="p-2.5 text-[#5a6485] hover:text-[#ff4757] transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                   title="Clear all"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => betSlipStore.toggleOpen()}
-                  className="p-1.5 text-[#5a6485] hover:text-white transition-colors"
+                  className="p-2.5 text-[#5a6485] hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                 >
                   <ChevronDown className="w-4 h-4" />
                 </button>
@@ -125,9 +125,9 @@ export default function BetSlip() {
                       </span>
                       <button
                         onClick={() => betSlipStore.removeBet(item.id)}
-                        className="p-1 text-[#5a6485] hover:text-[#ff4757] transition-colors"
+                        className="p-2 text-[#5a6485] hover:text-[#ff4757] transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        <X className="w-4 h-4" />
                       </button>
                     </div>
                   </div>

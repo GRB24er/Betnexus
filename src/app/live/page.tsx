@@ -90,13 +90,13 @@ export default function LivePage() {
               </span>
             </div>
 
-            <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+            <div className="flex flex-col md:flex-row md:items-center gap-4 sm:gap-6">
               {/* Match Info */}
               <div className="flex-1">
                 <p className="text-xs text-[#5a6485] mb-3">
                   {liveMatches[0].league}
                 </p>
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-3 sm:gap-6">
                   <div className="text-center flex-1">
                     <div className="w-16 h-16 bg-[#2a3050] rounded-full flex items-center justify-center mx-auto mb-2">
                       <span className="text-2xl">
@@ -142,7 +142,7 @@ export default function LivePage() {
               </div>
 
               {/* Quick Markets */}
-              <div className="lg:w-72 space-y-2">
+              <div className="md:w-64 lg:w-72 space-y-2">
                 <p className="text-[11px] font-semibold text-[#5a6485] uppercase tracking-wider">
                   Quick Markets
                 </p>
@@ -194,7 +194,7 @@ export default function LivePage() {
         <div
           className={
             viewMode === "grid"
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3"
               : "space-y-2"
           }
         >

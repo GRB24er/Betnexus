@@ -96,12 +96,12 @@ export default function SettingsPage() {
                 </span>
                 <button
                   onClick={() => setNotifications({ ...notifications, [key]: !val })}
-                  className={`w-10 h-5 rounded-full relative transition-colors ${
+                  className={`w-12 h-7 rounded-full relative transition-colors shrink-0 ${
                     val ? "bg-[#00d46e]" : "bg-[#2a3050]"
                   }`}
                 >
-                  <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${
-                    val ? "right-0.5" : "left-0.5"
+                  <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform ${
+                    val ? "right-1" : "left-1"
                   }`} />
                 </button>
               </div>

@@ -58,32 +58,32 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
           </div>
 
           {/* Score */}
-          <div className="flex items-center justify-center gap-8 py-6">
+          <div className="flex items-center justify-center gap-4 sm:gap-8 py-4 sm:py-6">
             <div className="text-center flex-1">
-              <div className="w-16 h-16 bg-[#2a3050] rounded-full flex items-center justify-center mx-auto mb-2">
-                <span className="text-2xl">{match.sport === "football" ? "⚽" : "🏀"}</span>
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#2a3050] rounded-full flex items-center justify-center mx-auto mb-2">
+                <span className="text-xl sm:text-2xl">{match.sport === "football" ? "⚽" : "🏀"}</span>
               </div>
-              <p className="text-base font-bold text-white">{match.homeTeam}</p>
+              <p className="text-sm sm:text-base font-bold text-white truncate px-1">{match.homeTeam}</p>
             </div>
-            <div className="text-center">
+            <div className="text-center shrink-0">
               {match.isLive ? (
-                <div className="text-4xl font-bold text-white mb-1">
+                <div className="text-2xl sm:text-4xl font-bold text-white mb-1">
                   {match.homeScore} - {match.awayScore}
                 </div>
               ) : (
-                <div className="text-2xl font-bold text-[#5a6485] mb-1">VS</div>
+                <div className="text-xl sm:text-2xl font-bold text-[#5a6485] mb-1">VS</div>
               )}
               {match.isLive && match.minute && (
-                <div className="w-32 h-1 bg-[#2a3050] rounded-full overflow-hidden mt-2 mx-auto">
+                <div className="w-20 sm:w-32 h-1 bg-[#2a3050] rounded-full overflow-hidden mt-2 mx-auto">
                   <div className="h-full bg-[#00d46e] rounded-full" style={{ width: `${(match.minute / 90) * 100}%` }} />
                 </div>
               )}
             </div>
             <div className="text-center flex-1">
-              <div className="w-16 h-16 bg-[#2a3050] rounded-full flex items-center justify-center mx-auto mb-2">
-                <span className="text-2xl">{match.sport === "football" ? "⚽" : "🏀"}</span>
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#2a3050] rounded-full flex items-center justify-center mx-auto mb-2">
+                <span className="text-xl sm:text-2xl">{match.sport === "football" ? "⚽" : "🏀"}</span>
               </div>
-              <p className="text-base font-bold text-white">{match.awayTeam}</p>
+              <p className="text-sm sm:text-base font-bold text-white truncate px-1">{match.awayTeam}</p>
             </div>
           </div>
         </div>
@@ -109,11 +109,11 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
                 <div className="px-4 py-2.5 border-b border-[#2a3050]/50">
                   <p className="text-xs font-semibold text-[#8b95b8]">{market.name}</p>
                 </div>
-                <div className="p-3 flex flex-wrap gap-2">
+                <div className="p-2 sm:p-3 flex flex-wrap gap-1.5 sm:gap-2">
                   {market.options.map((opt) => (
                     <button
                       key={opt.label}
-                      className="flex-1 min-w-[80px] flex items-center justify-between bg-[#0f1118] border border-[#2a3050] rounded-lg px-3 py-2 hover:border-[#00d46e]/30 transition-all"
+                      className="flex-1 min-w-[70px] sm:min-w-[80px] flex items-center justify-between bg-[#0f1118] border border-[#2a3050] rounded-lg px-2 sm:px-3 py-2 hover:border-[#00d46e]/30 transition-all min-h-[44px]"
                     >
                       <span className="text-xs text-[#8b95b8]">{opt.label}</span>
                       <span className="text-sm font-bold text-[#8b95b8] hover:text-[#00d46e]">{opt.odds.toFixed(2)}</span>

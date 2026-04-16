@@ -32,11 +32,11 @@ export default function HomePage() {
         </div>
         <div className="relative px-4 lg:px-6 py-8 lg:py-12">
           {/* Promotions Carousel */}
-          <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0">
+          <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0">
             {promotions.map((promo) => (
               <div
                 key={promo.id}
-                className={`min-w-[300px] sm:min-w-[340px] lg:min-w-0 lg:flex-1 snap-start bg-gradient-to-br ${promo.gradient} rounded-xl p-5 lg:p-6 relative overflow-hidden`}
+                className={`min-w-[260px] sm:min-w-[320px] md:min-w-[300px] lg:min-w-0 lg:flex-1 snap-start bg-gradient-to-br ${promo.gradient} rounded-xl p-4 sm:p-5 lg:p-6 relative overflow-hidden`}
               >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
                 <span className="inline-block text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full mb-3">
@@ -54,7 +54,7 @@ export default function HomePage() {
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mt-6">
             <StatCard icon={<Zap className="w-4 h-4" />} label="Live Events" value="24" color="text-[#ff4757]" />
             <StatCard icon={<TrendingUp className="w-4 h-4" />} label="Today's Events" value="1,247" color="text-[#00d46e]" />
             <StatCard icon={<Users className="w-4 h-4" />} label="Online Now" value="15,892" color="text-[#3b82f6]" />
@@ -80,9 +80,9 @@ export default function HomePage() {
             View All <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory -mx-4 px-4 lg:mx-0 lg:px-0">
+        <div className="flex gap-2.5 sm:gap-3 overflow-x-auto pb-2 snap-x snap-mandatory -mx-4 px-4 lg:mx-0 lg:px-0 scrollbar-hide">
           {liveMatches.slice(0, 6).map((match) => (
-            <div key={match.id} className="min-w-[280px] snap-start">
+            <div key={match.id} className="min-w-[250px] sm:min-w-[280px] snap-start">
               <MatchCard match={match} variant="featured" />
             </div>
           ))}
@@ -103,7 +103,7 @@ export default function HomePage() {
             All Sports <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
           {featuredMatches.map((match) => (
             <MatchCard key={match.id} match={match} />
           ))}
@@ -124,7 +124,7 @@ export default function HomePage() {
             View All <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
           {virtualGames.slice(0, 6).map((game) => (
             <Link
               key={game.id}
@@ -158,7 +158,7 @@ export default function HomePage() {
             View All <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
           {casinoGames.slice(0, 6).map((game) => (
             <Link
               key={game.id}
@@ -266,11 +266,11 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="bg-[#1c2033]/60 border border-[#2a3050] rounded-lg px-4 py-3 flex items-center gap-3">
-      <div className={`${color}`}>{icon}</div>
-      <div>
-        <p className="text-xs text-[#5a6485]">{label}</p>
-        <p className={`text-sm font-bold ${color}`}>{value}</p>
+    <div className="bg-[#1c2033]/60 border border-[#2a3050] rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3">
+      <div className={`${color} shrink-0`}>{icon}</div>
+      <div className="min-w-0">
+        <p className="text-[11px] sm:text-xs text-[#5a6485] truncate">{label}</p>
+        <p className={`text-xs sm:text-sm font-bold ${color}`}>{value}</p>
       </div>
     </div>
   );

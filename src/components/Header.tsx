@@ -39,7 +39,7 @@ export default function Header() {
         <div className="lg:hidden flex items-center gap-2">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-[#8b95b8] hover:text-white"
+            className="p-2.5 text-[#8b95b8] hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -79,10 +79,10 @@ export default function Header() {
         {/* Right Section */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Balance */}
-          <div className="flex items-center gap-2 bg-[#1c2033] border border-[#2a3050] rounded-lg px-3 py-1.5">
-            <Wallet className="w-4 h-4 text-[#00d46e]" />
-            <span className="text-sm font-semibold text-white">$1,250.00</span>
-          </div>
+          <Link href="/account" className="flex items-center gap-1.5 sm:gap-2 bg-[#1c2033] border border-[#2a3050] rounded-lg px-2 sm:px-3 py-1.5 min-h-[40px]">
+            <Wallet className="w-4 h-4 text-[#00d46e] shrink-0" />
+            <span className="text-xs sm:text-sm font-semibold text-white whitespace-nowrap">$1,250</span>
+          </Link>
 
           {/* Deposit */}
           <Link href="/deposit" className="gradient-green text-white text-sm font-semibold px-4 py-1.5 rounded-lg hover:opacity-90 transition-opacity hidden sm:block">
@@ -90,13 +90,13 @@ export default function Header() {
           </Link>
 
           {/* Notifications */}
-          <Link href="/notifications" className="relative p-2 text-[#8b95b8] hover:text-white transition-colors">
+          <Link href="/notifications" className="relative p-2.5 text-[#8b95b8] hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-[#ff4757] rounded-full" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#ff4757] rounded-full" />
           </Link>
 
           {/* User */}
-          <Link href="/account" className="p-2 text-[#8b95b8] hover:text-white transition-colors">
+          <Link href="/account" className="p-2.5 text-[#8b95b8] hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center hidden sm:flex">
             <User className="w-5 h-5" />
           </Link>
         </div>
@@ -157,14 +157,14 @@ export default function Header() {
       )}
 
       {/* Mobile Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#161925]/95 backdrop-blur-md border-t border-[#2a3050] z-30 lg:hidden flex">
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#161925]/95 backdrop-blur-md border-t border-[#2a3050] z-30 lg:hidden flex safe-bottom">
         {mobileNav.slice(0, 5).map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex-1 flex flex-col items-center gap-1 py-2 text-[10px] font-medium transition-colors ${
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 pb-3 text-[10px] font-medium transition-colors min-h-[56px] ${
                 isActive ? "text-[#00d46e]" : "text-[#5a6485]"
               }`}
             >

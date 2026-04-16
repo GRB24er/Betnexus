@@ -347,12 +347,12 @@ export default function DepositPage() {
                 <label className="text-xs font-medium text-[#8b95b8] mb-2 block">
                   Quick Select
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                   {quickAmounts.map((a) => (
                     <button
                       key={a}
                       onClick={() => setAmount(a.toString())}
-                      className={`py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                      className={`py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all min-h-[44px] ${
                         amount === a.toString()
                           ? "bg-[#00d46e]/20 text-[#00d46e] border border-[#00d46e]/30"
                           : "bg-[#1c2033] text-[#8b95b8] border border-[#2a3050] hover:text-white"

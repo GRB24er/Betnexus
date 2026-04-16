@@ -59,7 +59,7 @@ export default function AccountPage() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             <div className="bg-[#1c2033]/80 border border-[#2a3050] rounded-xl px-4 py-3">
               <div className="flex items-center gap-2 mb-1">
                 <Wallet className="w-3.5 h-3.5 text-[#00d46e]" />

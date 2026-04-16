@@ -101,7 +101,7 @@ export default function SportsPage() {
 
         {/* Filter Panel */}
         {showFilters && (
-          <div className="bg-[#1c2033] border border-[#2a3050] rounded-xl p-4 mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-[#1c2033] border border-[#2a3050] rounded-xl p-4 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div>
               <label className="text-[11px] text-[#5a6485] font-medium mb-1 block">
                 League
@@ -157,7 +157,7 @@ export default function SportsPage() {
               <span className="w-1.5 h-1.5 bg-[#ff4757] rounded-full live-pulse" />
               <h3 className="text-sm font-bold text-white">Live Matches</h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
               {uniqueMatches
                 .filter((m) => m.isLive)
                 .map((match) => (
@@ -173,7 +173,7 @@ export default function SportsPage() {
             <div className="flex items-center gap-2 mb-3">
               <h3 className="text-sm font-bold text-white">Upcoming</h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
               {uniqueMatches
                 .filter((m) => !m.isLive)
                 .map((match) => (
