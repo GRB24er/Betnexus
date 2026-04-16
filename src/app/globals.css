@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #0f1118;
+  --bg-secondary: #161925;
+  --bg-card: #1c2033;
+  --bg-card-hover: #232840;
+  --bg-accent: #2a3050;
+  --text-primary: #ffffff;
+  --text-secondary: #8b95b8;
+  --text-muted: #5a6485;
+  --brand-green: #00d46e;
+  --brand-green-dark: #00b85c;
+  --brand-yellow: #ffc107;
+  --brand-orange: #ff6b35;
+  --brand-red: #ff4757;
+  --brand-blue: #3b82f6;
+  --brand-purple: #8b5cf6;
+  --brand-cyan: #06b6d4;
+  --border-color: #2a3050;
+  --sidebar-width: 240px;
+}
+
+@theme inline {
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-accent) transparent;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-accent);
+  border-radius: 3px;
+}
+
+/* Glow effects */
+.glow-green {
+  box-shadow: 0 0 20px rgba(0, 212, 110, 0.15);
+}
+.glow-blue {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+}
+
+/* Pulse animation for live indicators */
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.live-pulse {
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+
+/* Gradient backgrounds */
+.gradient-hero {
+  background: linear-gradient(135deg, #1a1f3a 0%, #0f1118 50%, #1a2340 100%);
+}
+.gradient-card {
+  background: linear-gradient(180deg, #1c2033 0%, #161925 100%);
+}
+.gradient-green {
+  background: linear-gradient(135deg, #00d46e 0%, #00b85c 100%);
+}
+.gradient-orange {
+  background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+}
+.gradient-blue {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+.gradient-purple {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.05) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Bet slip slide animation */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Odds change flash */
+@keyframes oddsFlash {
+  0% { background-color: rgba(0, 212, 110, 0.3); }
+  100% { background-color: transparent; }
+}
+.odds-flash-up {
+  animation: oddsFlash 1s ease-out;
+}
+
+@keyframes oddsFlashDown {
+  0% { background-color: rgba(255, 71, 87, 0.3); }
+  100% { background-color: transparent; }
+}
+.odds-flash-down {
+  animation: oddsFlashDown 1s ease-out;
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
