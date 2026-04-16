@@ -168,7 +168,7 @@ export default function MatchCard({ match, variant = "default" }: MatchCardProps
             <span className="text-[11px] text-[#5a6485]">{match.time}</span>
           )}
           {match.markets && (
-            <Link href="#" className="text-[11px] text-[#3b82f6] hover:underline">
+            <Link href={`/match/${match.id}`} className="text-[11px] text-[#3b82f6] hover:underline">
               +{match.markets}
             </Link>
           )}

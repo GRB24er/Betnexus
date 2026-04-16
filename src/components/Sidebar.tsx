@@ -28,9 +28,9 @@ const mainNav = [
 ];
 
 const quickLinks = [
-  { label: "Favorites", icon: Star, count: 5 },
-  { label: "Popular", icon: TrendingUp, count: 48 },
-  { label: "Starting Soon", icon: Timer, count: 12 },
+  { label: "Favorites", icon: Star, count: 5, href: "/sports" },
+  { label: "Popular", icon: TrendingUp, count: 48, href: "/sports" },
+  { label: "Starting Soon", icon: Timer, count: 12, href: "/live" },
 ];
 
 export default function Sidebar() {
@@ -101,14 +101,15 @@ export default function Sidebar() {
             Quick Access
           </p>
           {quickLinks.map((item) => (
-            <button
+            <Link
               key={item.label}
+              href={item.href}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg mb-0.5 text-sm font-medium text-[#8b95b8] hover:bg-[#1c2033] hover:text-white transition-all duration-200 w-full group"
             >
               <item.icon className="w-[18px] h-[18px] text-[#5a6485] group-hover:text-white" />
               <span className="flex-1 text-left">{item.label}</span>
               <span className="text-[11px] text-[#5a6485]">{item.count}</span>
-            </button>
+            </Link>
           ))}
         </div>
 
@@ -146,9 +147,9 @@ export default function Sidebar() {
 
       {/* Bottom CTA */}
       <div className="p-4 border-t border-[#2a3050]">
-        <button className="w-full gradient-green text-white font-semibold text-sm py-2.5 rounded-lg hover:opacity-90 transition-opacity">
-          Download App
-        </button>
+        <Link href="/deposit" className="block w-full gradient-green text-white font-semibold text-sm py-2.5 rounded-lg hover:opacity-90 transition-opacity text-center">
+          Deposit Now
+        </Link>
       </div>
     </aside>
   );

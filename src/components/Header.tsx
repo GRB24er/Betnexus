@@ -85,20 +85,20 @@ export default function Header() {
           </div>
 
           {/* Deposit */}
-          <button className="gradient-green text-white text-sm font-semibold px-4 py-1.5 rounded-lg hover:opacity-90 transition-opacity hidden sm:block">
+          <Link href="/deposit" className="gradient-green text-white text-sm font-semibold px-4 py-1.5 rounded-lg hover:opacity-90 transition-opacity hidden sm:block">
             Deposit
-          </button>
+          </Link>
 
           {/* Notifications */}
-          <button className="relative p-2 text-[#8b95b8] hover:text-white transition-colors">
+          <Link href="/notifications" className="relative p-2 text-[#8b95b8] hover:text-white transition-colors">
             <Bell className="w-5 h-5" />
             <span className="absolute top-1 right-1 w-2 h-2 bg-[#ff4757] rounded-full" />
-          </button>
+          </Link>
 
           {/* User */}
-          <button className="p-2 text-[#8b95b8] hover:text-white transition-colors">
+          <Link href="/account" className="p-2 text-[#8b95b8] hover:text-white transition-colors">
             <User className="w-5 h-5" />
-          </button>
+          </Link>
         </div>
       </header>
 
@@ -148,9 +148,9 @@ export default function Header() {
               );
             })}
             <div className="mt-6 pt-4 border-t border-[#2a3050]">
-              <button className="w-full gradient-green text-white font-semibold text-sm py-2.5 rounded-lg">
+              <Link href="/deposit" onClick={() => setMobileMenuOpen(false)} className="block w-full gradient-green text-white font-semibold text-sm py-2.5 rounded-lg text-center">
                 Deposit
-              </button>
+              </Link>
             </div>
           </div>
         </div>

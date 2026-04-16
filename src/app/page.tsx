@@ -46,9 +46,9 @@ export default function HomePage() {
                   {promo.title}
                 </h3>
                 <p className="text-sm text-white/70 mb-4">{promo.description}</p>
-                <button className="bg-white/20 hover:bg-white/30 text-white text-sm font-semibold px-4 py-2 rounded-lg backdrop-blur-sm transition-all flex items-center gap-1.5">
+                <Link href="/promotions" className="inline-flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold px-4 py-2 rounded-lg backdrop-blur-sm transition-all">
                   {promo.cta} <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                </Link>
               </div>
             ))}
           </div>
@@ -198,14 +198,9 @@ export default function HomePage() {
           <div>
             <h4 className="text-sm font-semibold text-white mb-3">Sports</h4>
             <div className="space-y-2">
-              {["Football", "Basketball", "Tennis", "Cricket", "Esports"].map(
+              {[{n:"Football",h:"/sports?cat=football"},{n:"Basketball",h:"/sports?cat=basketball"},{n:"Tennis",h:"/sports?cat=tennis"},{n:"Cricket",h:"/sports?cat=cricket"},{n:"Esports",h:"/sports?cat=esports"}].map(
                 (s) => (
-                  <p
-                    key={s}
-                    className="text-xs text-[#5a6485] hover:text-[#8b95b8] cursor-pointer"
-                  >
-                    {s}
-                  </p>
+                  <Link key={s.n} href={s.h} className="block text-xs text-[#5a6485] hover:text-[#8b95b8]">{s.n}</Link>
                 )
               )}
             </div>
@@ -215,12 +210,7 @@ export default function HomePage() {
             <div className="space-y-2">
               {["Slots", "Live Casino", "Table Games", "Crash Games", "Jackpots"].map(
                 (s) => (
-                  <p
-                    key={s}
-                    className="text-xs text-[#5a6485] hover:text-[#8b95b8] cursor-pointer"
-                  >
-                    {s}
-                  </p>
+                  <Link key={s} href="/casino" className="block text-xs text-[#5a6485] hover:text-[#8b95b8]">{s}</Link>
                 )
               )}
             </div>
@@ -228,31 +218,21 @@ export default function HomePage() {
           <div>
             <h4 className="text-sm font-semibold text-white mb-3">Support</h4>
             <div className="space-y-2">
-              {["Help Center", "Live Chat", "FAQs", "Contact Us", "Responsible Gaming"].map(
-                (s) => (
-                  <p
-                    key={s}
-                    className="text-xs text-[#5a6485] hover:text-[#8b95b8] cursor-pointer"
-                  >
-                    {s}
-                  </p>
-                )
-              )}
+              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#8b95b8]">Help Center</Link>
+              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#8b95b8]">Live Chat</Link>
+              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#8b95b8]">FAQs</Link>
+              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#8b95b8]">Contact Us</Link>
+              <Link href="/responsible-gaming" className="block text-xs text-[#5a6485] hover:text-[#8b95b8]">Responsible Gaming</Link>
             </div>
           </div>
           <div>
             <h4 className="text-sm font-semibold text-white mb-3">Legal</h4>
             <div className="space-y-2">
-              {["Terms of Service", "Privacy Policy", "Cookie Policy", "Betting Rules", "License Info"].map(
-                (s) => (
-                  <p
-                    key={s}
-                    className="text-xs text-[#5a6485] hover:text-[#8b95b8] cursor-pointer"
-                  >
-                    {s}
-                  </p>
-                )
-              )}
+              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#8b95b8]">Terms of Service</Link>
+              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#8b95b8]">Privacy Policy</Link>
+              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#8b95b8]">Cookie Policy</Link>
+              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#8b95b8]">Betting Rules</Link>
+              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#8b95b8]">License Info</Link>
             </div>
           </div>
         </div>
@@ -266,7 +246,7 @@ export default function HomePage() {
             </span>
           </div>
           <p className="text-[11px] text-[#5a6485] text-center">
-            18+ | Gamble Responsibly | BetNexus is licensed and regulated. All rights reserved.
+            18+ | <Link href="/responsible-gaming" className="hover:text-[#8b95b8]">Gamble Responsibly</Link> | BetNexus is licensed and regulated. All rights reserved.
           </p>
         </div>
       </footer>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Gift, ArrowRight, Clock, Star, Shield, Percent } from "lucide-react";
 import { promotions } from "@/lib/data";
 
@@ -77,12 +78,12 @@ export default function PromotionsPage() {
               Minimum deposit $20. 6x wagering requirement.
             </p>
             <div className="flex flex-wrap gap-3">
-              <button className="bg-white text-green-700 font-bold text-sm px-6 py-3 rounded-lg hover:bg-white/90 transition-colors flex items-center gap-2">
+              <Link href="/deposit" className="bg-white text-green-700 font-bold text-sm px-6 py-3 rounded-lg hover:bg-white/90 transition-colors flex items-center gap-2">
                 Claim Now <ArrowRight className="w-4 h-4" />
-              </button>
-              <button className="bg-white/20 text-white font-semibold text-sm px-6 py-3 rounded-lg hover:bg-white/30 transition-colors backdrop-blur-sm">
+              </Link>
+              <Link href="/help" className="bg-white/20 text-white font-semibold text-sm px-6 py-3 rounded-lg hover:bg-white/30 transition-colors backdrop-blur-sm">
                 Terms & Conditions
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -102,9 +103,9 @@ export default function PromotionsPage() {
                 {promo.title}
               </h3>
               <p className="text-xs text-white/70 mb-4">{promo.description}</p>
-              <button className="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-4 py-2 rounded-lg backdrop-blur-sm transition-all flex items-center gap-1.5">
+              <Link href="/deposit" className="inline-flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-4 py-2 rounded-lg backdrop-blur-sm transition-all">
                 {promo.cta} <ArrowRight className="w-3 h-3" />
-              </button>
+              </Link>
             </div>
           ))}
         </div>
