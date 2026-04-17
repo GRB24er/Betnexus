@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { X, Trash2, ChevronUp, ChevronDown, Receipt } from "lucide-react";
+import { X, Trash2, ChevronUp, ChevronDown, Receipt, Loader2, CheckCircle } from "lucide-react";
 import { betSlipStore } from "@/store/betslip";
+import { useSession, sessionStore } from "@/store/session";
+import { api } from "@/lib/api";
 
 export default function BetSlip() {
   const { items, isOpen } = useSyncExternalStore(
@@ -10,8 +12,12 @@ export default function BetSlip() {
     betSlipStore.getSnapshot,
     betSlipStore.getSnapshot
   );
+  const { user } = useSession();
   const [stakes, setStakes] = useState<Record<string, string>>({});
   const [betType, setBetType] = useState<"single" | "acca">("single");
+  const [placing, setPlacing] = useState(false);
+  const [placed, setPlaced] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const totalOdds = items.reduce((acc, item) => acc * item.odds, 1);
   const accaStake = stakes["acca"] || "";
@@ -199,8 +205,56 @@ export default function BetSlip() {
                   ${getPotentialWin().toFixed(2)}
                 </span>
               </div>
-              <button className="w-full gradient-green text-white font-bold text-sm py-3 rounded-lg hover:opacity-90 transition-opacity mt-1">
-                Place Bet — ${getTotalStake().toFixed(2)}
+              {error && (
+                <p className="text-[11px] text-[#ff4757]">{error}</p>
+              )}
+              {placed && (
+                <div className="flex items-center gap-1.5 text-[11px] text-[#00d46e]">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Bet placed successfully!
+                </div>
+              )}
+              <button
+                disabled={placing || getTotalStake() <= 0}
+                onClick={async () => {
+                  if (!user) {
+                    setError("Please sign in to place bets");
+                    return;
+                  }
+                  setPlacing(true);
+                  setError(null);
+                  setPlaced(false);
+                  try {
+                    const selections = items.map((i) => ({
+                      matchId: i.id.split("-")[0],
+                      match: i.match,
+                      market: i.market,
+                      selection: i.selection,
+                      odds: i.odds,
+                    }));
+                    const stake = getTotalStake();
+                    const type = betType === "acca" && items.length > 1 ? "accumulator" : "single";
+                    const res = await api.post<{ balance: number }>(
+                      "/api/bets/place",
+                      { selections, stake, type }
+                    );
+                    sessionStore.setBalance(res.balance);
+                    setPlaced(true);
+                    setTimeout(() => {
+                      betSlipStore.clearAll();
+                      setStakes({});
+                      setPlaced(false);
+                    }, 2000);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Failed to place bet");
+                  } finally {
+                    setPlacing(false);
+                  }
+                }}
+                className="w-full gradient-green text-white font-bold text-sm py-3 rounded-lg hover:opacity-90 transition-opacity mt-1 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {placing && <Loader2 className="w-4 h-4 animate-spin" />}
+                {placing ? "Placing..." : `Place Bet — ${user?.currency || "$"}${getTotalStake().toFixed(2)}`}
               </button>
             </div>
           </div>

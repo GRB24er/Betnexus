@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Wallet,
   ArrowLeft,
@@ -11,11 +12,14 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
+  Loader2,
 } from "lucide-react";
+import { useSession, sessionStore } from "@/store/session";
+import { api } from "@/lib/api";
 
 const withdrawMethods = [
   {
-    id: "mtn-momo",
+    id: "mtn_momo",
     name: "MTN Mobile Money",
     icon: "📱",
     bgColor: "bg-yellow-500/10",
@@ -26,7 +30,7 @@ const withdrawMethods = [
     currency: "GHS",
   },
   {
-    id: "telecel",
+    id: "telecel_cash",
     name: "Telecel Cash",
     icon: "📲",
     bgColor: "bg-red-500/10",
@@ -48,7 +52,7 @@ const withdrawMethods = [
     currency: "BTC",
   },
   {
-    id: "usdt",
+    id: "usdt_trc20",
     name: "Tether (USDT TRC-20)",
     icon: "💲",
     bgColor: "bg-green-500/10",
@@ -61,21 +65,57 @@ const withdrawMethods = [
 ];
 
 export default function WithdrawPage() {
+  const router = useRouter();
+  const { user, loading } = useSession();
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [destination, setDestination] = useState("");
-  const [step, setStep] = useState<"form" | "confirm" | "success">("form");
+  const [accountName, setAccountName] = useState("");
+  const [step, setStep] = useState<"form" | "confirm" | "processing" | "success" | "failed">("form");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [txRef, setTxRef] = useState<string | null>(null);
 
   const method = withdrawMethods.find((m) => m.id === selectedMethod);
-  const isMobile = selectedMethod === "mtn-momo" || selectedMethod === "telecel";
+  const isMobile = selectedMethod === "mtn_momo" || selectedMethod === "telecel_cash";
+  const isCrypto = selectedMethod === "btc" || selectedMethod === "usdt_trc20";
+
+  if (!loading && !user) {
+    router.push("/login");
+    return null;
+  }
 
   const handleSubmit = () => {
     if (!selectedMethod || !amount || !destination) return;
+    setError(null);
     setStep("confirm");
   };
 
-  const handleConfirm = () => {
-    setStep("success");
+  const handleConfirm = async () => {
+    if (!selectedMethod) return;
+    setSubmitting(true);
+    setError(null);
+    setStep("processing");
+    try {
+      const res = await api.post<{
+        reference: string;
+        balance: number;
+      }>("/api/withdraw", {
+        amount: parseFloat(amount),
+        method: selectedMethod,
+        accountNumber: isMobile ? destination : undefined,
+        accountName: isMobile ? accountName : undefined,
+        cryptoAddress: isCrypto ? destination : undefined,
+      });
+      setTxRef(res.reference);
+      sessionStore.setBalance(res.balance);
+      setStep("success");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Withdrawal failed");
+      setStep("failed");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -92,7 +132,10 @@ export default function WithdrawPage() {
             <div>
               <h1 className="text-xl font-bold text-white">Withdraw Funds</h1>
               <p className="text-xs text-[#8b95b8]">
-                Available balance: <span className="text-[#00d46e] font-bold">$1,250.00</span>
+                Available balance:{" "}
+                <span className="text-[#00d46e] font-bold">
+                  {user ? `${user.currency} ${user.balance.toFixed(2)}` : "—"}
+                </span>
               </p>
             </div>
           </div>
@@ -102,6 +145,12 @@ export default function WithdrawPage() {
       <div className="px-4 lg:px-6 py-6 max-w-2xl mx-auto">
         {step === "form" && (
           <div>
+            {error && (
+              <div className="mb-4 bg-[#ff4757]/10 border border-[#ff4757]/30 rounded-xl px-3 py-2 text-xs text-[#ff4757]">
+                {error}
+              </div>
+            )}
+
             {/* Withdrawal Method */}
             <div className="mb-6">
               <label className="text-xs font-medium text-[#8b95b8] mb-3 block">
@@ -153,7 +202,7 @@ export default function WithdrawPage() {
                   <div className="flex justify-between mt-1.5">
                     <span className="text-[10px] text-[#5a6485]">Min: {method?.minWithdraw} {method?.currency}</span>
                     <button
-                      onClick={() => setAmount("1250")}
+                      onClick={() => user && setAmount(user.balance.toString())}
                       className="text-[10px] text-[#3b82f6] hover:underline"
                     >
                       Withdraw All
@@ -162,7 +211,7 @@ export default function WithdrawPage() {
                 </div>
 
                 {/* Destination */}
-                <div className="mb-6">
+                <div className="mb-4">
                   <label className="text-xs font-medium text-[#8b95b8] mb-2 block">
                     {isMobile ? "Phone Number" : "Wallet Address"}
                   </label>
@@ -174,6 +223,21 @@ export default function WithdrawPage() {
                     className="w-full bg-[#0f1118] border border-[#2a3050] rounded-xl px-4 py-3 text-sm text-white placeholder-[#5a6485] focus:outline-none focus:border-[#00d46e]/50"
                   />
                 </div>
+
+                {isMobile && (
+                  <div className="mb-6">
+                    <label className="text-xs font-medium text-[#8b95b8] mb-2 block">
+                      Account Name
+                    </label>
+                    <input
+                      type="text"
+                      value={accountName}
+                      onChange={(e) => setAccountName(e.target.value)}
+                      placeholder="Name on account"
+                      className="w-full bg-[#0f1118] border border-[#2a3050] rounded-xl px-4 py-3 text-sm text-white placeholder-[#5a6485] focus:outline-none focus:border-[#00d46e]/50"
+                    />
+                  </div>
+                )}
 
                 <button
                   onClick={handleSubmit}
@@ -189,7 +253,7 @@ export default function WithdrawPage() {
               <AlertCircle className="w-4 h-4 text-[#ffc107] shrink-0 mt-0.5" />
               <div className="text-[11px] text-[#5a6485] space-y-1">
                 <p>Withdrawals are processed within 24 hours for mobile money and 1 hour for crypto.</p>
-                <p>You must wager your deposit at least 1x before withdrawing.</p>
+                <p>KYC verification is required before withdrawing.</p>
               </div>
             </div>
           </div>
@@ -212,7 +276,7 @@ export default function WithdrawPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-xs text-[#5a6485]">Destination</span>
-                  <span className="text-sm font-mono text-white">{destination}</span>
+                  <span className="text-sm font-mono text-white truncate max-w-[200px]">{destination}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-xs text-[#5a6485]">Fee</span>
@@ -228,10 +292,44 @@ export default function WithdrawPage() {
               <button onClick={() => setStep("form")} className="flex-1 bg-[#1c2033] border border-[#2a3050] text-[#8b95b8] font-medium text-sm py-3 rounded-xl hover:text-white transition-colors">
                 Cancel
               </button>
-              <button onClick={handleConfirm} className="flex-1 gradient-green text-white font-bold text-sm py-3 rounded-xl hover:opacity-90 transition-opacity">
+              <button
+                onClick={handleConfirm}
+                disabled={submitting}
+                className="flex-1 gradient-green text-white font-bold text-sm py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 Confirm Withdrawal
               </button>
             </div>
+          </div>
+        )}
+
+        {step === "processing" && (
+          <div className="text-center py-12">
+            <Loader2 className="w-12 h-12 animate-spin text-[#3b82f6] mx-auto mb-6" />
+            <h3 className="text-lg font-bold text-white mb-2">Processing Withdrawal</h3>
+            <p className="text-sm text-[#8b95b8]">Please wait...</p>
+          </div>
+        )}
+
+        {step === "failed" && (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-[#ff4757]/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-8 h-8 text-[#ff4757]" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Withdrawal Failed</h3>
+            <p className="text-sm text-[#8b95b8] mb-6">
+              {error || "Something went wrong. Please try again."}
+            </p>
+            <button
+              onClick={() => {
+                setStep("form");
+                setError(null);
+              }}
+              className="gradient-green text-white font-semibold text-sm px-6 py-3 rounded-xl hover:opacity-90 transition-opacity"
+            >
+              Try Again
+            </button>
           </div>
         )}
 
@@ -244,6 +342,9 @@ export default function WithdrawPage() {
             <p className="text-sm text-[#8b95b8] mb-1">
               {amount} {method?.currency} will be sent to your {method?.name} account.
             </p>
+            {txRef && (
+              <p className="text-[11px] text-[#5a6485] font-mono mb-2">Ref: {txRef}</p>
+            )}
             <div className="flex items-center justify-center gap-1.5 text-xs text-[#5a6485] mb-8">
               <Clock className="w-3 h-3" />
               <span>Estimated time: {method?.time}</span>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Wallet,
   Smartphone,
@@ -14,10 +15,12 @@ import {
   Zap,
   Lock,
 } from "lucide-react";
+import { api } from "@/lib/api";
+import { sessionStore, useSession } from "@/store/session";
 
 const paymentMethods = [
   {
-    id: "mtn-momo",
+    id: "mtn_momo",
     name: "MTN Mobile Money",
     shortName: "MTN MoMo",
     icon: "📱",
@@ -33,7 +36,7 @@ const paymentMethods = [
     currency: "GHS",
   },
   {
-    id: "telecel",
+    id: "telecel_cash",
     name: "Telecel Cash",
     shortName: "Telecel",
     icon: "📲",
@@ -65,7 +68,7 @@ const paymentMethods = [
     currency: "BTC",
   },
   {
-    id: "usdt",
+    id: "usdt_trc20",
     name: "Tether (USDT)",
     shortName: "USDT",
     icon: "💲",
@@ -85,16 +88,54 @@ const paymentMethods = [
 const quickAmounts = [10, 20, 50, 100, 200, 500];
 
 export default function DepositPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, loading } = useSession();
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [phone, setPhone] = useState("");
-  const [walletAddress] = useState("");
-  const [step, setStep] = useState<"method" | "amount" | "confirm" | "processing" | "success">("method");
+  const [cryptoAddress, setCryptoAddress] = useState("");
+  const [step, setStep] = useState<
+    "method" | "amount" | "confirm" | "processing" | "success" | "failed"
+  >("method");
   const [promoCode, setPromoCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [reference, setReference] = useState<string | null>(null);
 
   const method = paymentMethods.find((m) => m.id === selectedMethod);
-  const isMobileMoney = selectedMethod === "mtn-momo" || selectedMethod === "telecel";
-  const isCrypto = selectedMethod === "btc" || selectedMethod === "usdt";
+  const isMobileMoney =
+    selectedMethod === "mtn_momo" || selectedMethod === "telecel_cash";
+  const isCrypto = selectedMethod === "btc" || selectedMethod === "usdt_trc20";
+
+  // Verify return-from-Paystack callback
+  useEffect(() => {
+    const ref = searchParams.get("reference") || searchParams.get("trxref");
+    if (!ref || !user) return;
+    setReference(ref);
+    setStep("processing");
+    (async () => {
+      try {
+        const res = await api.get<{ status: string; balance?: number }>(
+          `/api/paystack/verify?reference=${encodeURIComponent(ref)}`
+        );
+        if (res.status === "success") {
+          if (typeof res.balance === "number") {
+            sessionStore.setBalance(res.balance);
+          }
+          setStep("success");
+        } else if (res.status === "failed") {
+          setError("Payment failed or was abandoned.");
+          setStep("failed");
+        } else {
+          setStep("processing");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Verification failed");
+        setStep("failed");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id]);
 
   const handleSelectMethod = (id: string) => {
     setSelectedMethod(id);
@@ -102,16 +143,37 @@ export default function DepositPage() {
   };
 
   const handleProceed = () => {
+    setError(null);
     if (!amount || parseFloat(amount) <= 0) return;
     if (isMobileMoney && !phone) return;
+    if (isCrypto && !cryptoAddress) return;
     setStep("confirm");
   };
 
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = async () => {
+    if (!selectedMethod) return;
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    setError(null);
     setStep("processing");
-    setTimeout(() => {
-      setStep("success");
-    }, 3000);
+    try {
+      const res = await api.post<{
+        reference: string;
+        authorization_url: string;
+      }>("/api/paystack/initialize", {
+        amount: parseFloat(amount),
+        method: selectedMethod,
+        accountNumber: isMobileMoney ? phone : undefined,
+        cryptoAddress: isCrypto ? cryptoAddress : undefined,
+      });
+      setReference(res.reference);
+      window.location.href = res.authorization_url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Payment failed");
+      setStep("failed");
+    }
   };
 
   return (
@@ -137,6 +199,19 @@ export default function DepositPage() {
       </div>
 
       <div className="px-4 lg:px-6 py-6 max-w-2xl mx-auto">
+        {!loading && !user && (
+          <div className="mb-5 bg-[#ffc107]/10 border border-[#ffc107]/30 rounded-xl px-4 py-3 flex items-center gap-3">
+            <AlertCircle className="w-4 h-4 text-[#ffc107] shrink-0" />
+            <p className="text-xs text-[#ffc107]">
+              You need to{" "}
+              <Link href="/login" className="underline font-semibold">
+                sign in
+              </Link>{" "}
+              before making a deposit.
+            </p>
+          </div>
+        )}
+
         {/* Progress Steps */}
         <div className="flex items-center gap-2 mb-8">
           {["Payment Method", "Amount", "Confirm"].map((label, i) => {
@@ -384,7 +459,27 @@ export default function DepositPage() {
               </div>
             )}
 
-            {/* Crypto Address Info */}
+            {/* Crypto Address Input */}
+            {isCrypto && (
+              <div className="mb-5">
+                <label className="text-xs font-medium text-[#8b95b8] mb-2 block">
+                  Your {method.shortName} Wallet Address (for refunds)
+                </label>
+                <input
+                  type="text"
+                  value={cryptoAddress}
+                  onChange={(e) => setCryptoAddress(e.target.value)}
+                  placeholder={
+                    selectedMethod === "btc"
+                      ? "bc1q..."
+                      : "TRC-20 address (T...)"
+                  }
+                  className="w-full bg-[#0f1118] border border-[#2a3050] rounded-xl px-4 py-3 text-xs font-mono text-white placeholder-[#5a6485] focus:outline-none focus:border-[#00d46e]/50 focus:ring-1 focus:ring-[#00d46e]/20 transition-all"
+                />
+              </div>
+            )}
+
+            {/* Crypto Info */}
             {isCrypto && (
               <div className="mb-5 bg-[#1c2033] border border-[#2a3050] rounded-xl p-4">
                 <p className="text-xs font-semibold text-white mb-2">
@@ -430,9 +525,20 @@ export default function DepositPage() {
               </div>
             </div>
 
+            {error && (
+              <div className="bg-[#ff4757]/10 border border-[#ff4757]/30 rounded-xl px-3 py-2 text-xs text-[#ff4757] mb-3">
+                {error}
+              </div>
+            )}
+
             <button
               onClick={handleProceed}
-              disabled={!amount || parseFloat(amount) <= 0 || (isMobileMoney && !phone)}
+              disabled={
+                !amount ||
+                parseFloat(amount) <= 0 ||
+                (isMobileMoney && !phone) ||
+                (isCrypto && !cryptoAddress)
+              }
               className="w-full gradient-green text-white font-bold text-sm py-3.5 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               Continue <ChevronRight className="w-4 h-4" />
@@ -536,9 +642,34 @@ export default function DepositPage() {
               </p>
             )}
             <div className="bg-[#1c2033] border border-[#2a3050] rounded-lg p-4 max-w-xs mx-auto">
-              <p className="text-[11px] text-[#5a6485]">Transaction ID</p>
-              <p className="text-xs font-mono text-white mt-1">TXN-{Date.now()}</p>
+              <p className="text-[11px] text-[#5a6485]">Transaction Reference</p>
+              <p className="text-xs font-mono text-white mt-1 break-all">
+                {reference || "—"}
+              </p>
             </div>
+          </div>
+        )}
+
+        {/* Failed */}
+        {step === "failed" && (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-[#ff4757]/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-8 h-8 text-[#ff4757]" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Payment Failed</h3>
+            <p className="text-sm text-[#8b95b8] mb-6">
+              {error || "Something went wrong. Please try again."}
+            </p>
+            <button
+              onClick={() => {
+                setStep("method");
+                setError(null);
+                setReference(null);
+              }}
+              className="gradient-green text-white font-semibold text-sm px-6 py-3 rounded-xl hover:opacity-90 transition-opacity"
+            >
+              Try Again
+            </button>
           </div>
         )}
 
@@ -550,10 +681,17 @@ export default function DepositPage() {
             </div>
             <h3 className="text-xl font-bold text-white mb-2">Deposit Successful!</h3>
             <p className="text-sm text-[#8b95b8] mb-2">
-              {isCrypto ? "" : "GHS "}{amount} {isCrypto ? method?.currency : ""} has been added to your account.
+              Your deposit has been credited to your account.
             </p>
             <p className="text-xs text-[#5a6485] mb-8">
-              Your new balance: <span className="text-[#00d46e] font-bold">$1,{(250 + parseFloat(amount || "0")).toFixed(2)}</span>
+              {user && (
+                <>
+                  New balance:{" "}
+                  <span className="text-[#00d46e] font-bold">
+                    {user.currency} {user.balance.toFixed(2)}
+                  </span>
+                </>
+              )}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link

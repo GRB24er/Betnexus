@@ -17,6 +17,7 @@ import {
   Gift,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useSession } from "@/store/session";
 
 const mobileNav = [
   { href: "/", label: "Home", icon: Home },
@@ -31,6 +32,7 @@ export default function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const { user } = useSession();
 
   return (
     <>
@@ -78,11 +80,19 @@ export default function Header() {
 
         {/* Right Section */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Balance */}
-          <Link href="/account" className="flex items-center gap-1.5 sm:gap-2 bg-[#1c2033] border border-[#2a3050] rounded-lg px-2 sm:px-3 py-1.5 min-h-[40px]">
-            <Wallet className="w-4 h-4 text-[#00d46e] shrink-0" />
-            <span className="text-xs sm:text-sm font-semibold text-white whitespace-nowrap">$1,250</span>
-          </Link>
+          {/* Balance / Login */}
+          {user ? (
+            <Link href="/account" className="flex items-center gap-1.5 sm:gap-2 bg-[#1c2033] border border-[#2a3050] rounded-lg px-2 sm:px-3 py-1.5 min-h-[40px]">
+              <Wallet className="w-4 h-4 text-[#00d46e] shrink-0" />
+              <span className="text-xs sm:text-sm font-semibold text-white whitespace-nowrap">
+                {user.currency} {user.balance.toFixed(2)}
+              </span>
+            </Link>
+          ) : (
+            <Link href="/login" className="flex items-center gap-1.5 sm:gap-2 bg-[#1c2033] border border-[#2a3050] rounded-lg px-2 sm:px-3 py-1.5 min-h-[40px] text-xs sm:text-sm font-semibold text-white">
+              Sign In
+            </Link>
+          )}
 
           {/* Deposit */}
           <Link href="/deposit" className="gradient-green text-white text-sm font-semibold px-4 py-1.5 rounded-lg hover:opacity-90 transition-opacity hidden sm:block">

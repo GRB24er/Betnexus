@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Zap, Eye, EyeOff, Mail, Lock, User, Phone, Calendar } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Zap, Eye, EyeOff, Mail, Lock, User, Phone, Calendar, Loader2 } from "lucide-react";
+import { sessionStore } from "@/store/session";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -16,12 +19,37 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedAge, setAgreedAge] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const update = (field: string, value: string) =>
     setForm({ ...form, [field]: value });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    const [firstName, ...rest] = form.fullName.trim().split(/\s+/);
+    const lastName = rest.join(" ") || firstName;
+    setSubmitting(true);
+    try {
+      await sessionStore.register({
+        email: form.email,
+        password: form.password,
+        firstName,
+        lastName,
+        phone: form.phone,
+        dateOfBirth: form.dob,
+      });
+      router.push("/account");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -189,12 +217,19 @@ export default function RegisterPage() {
               </label>
             </div>
 
+            {error && (
+              <div className="bg-[#ff4757]/10 border border-[#ff4757]/30 rounded-xl px-3 py-2 text-xs text-[#ff4757]">
+                {error}
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={!agreedTerms || !agreedAge}
-              className="w-full gradient-green text-white font-bold text-sm py-3.5 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={!agreedTerms || !agreedAge || submitting}
+              className="w-full gradient-green text-white font-bold text-sm py-3.5 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              Create Account
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {submitting ? "Creating Account..." : "Create Account"}
             </button>
           </form>
         </div>

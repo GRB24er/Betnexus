@@ -2,16 +2,31 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Zap, Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Zap, Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
+import { sessionStore } from "@/store/session";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      await sessionStore.login(email, password);
+      router.push("/account");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -104,12 +119,20 @@ export default function LoginPage() {
               <span className="text-xs text-[#8b95b8]">Remember me</span>
             </div>
 
+            {error && (
+              <div className="bg-[#ff4757]/10 border border-[#ff4757]/30 rounded-xl px-3 py-2 text-xs text-[#ff4757]">
+                {error}
+              </div>
+            )}
+
             {/* Submit */}
             <button
               type="submit"
-              className="w-full gradient-green text-white font-bold text-sm py-3.5 rounded-xl hover:opacity-90 transition-opacity"
+              disabled={submitting}
+              className="w-full gradient-green text-white font-bold text-sm py-3.5 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              Sign In
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {submitting ? "Signing In..." : "Sign In"}
             </button>
           </form>
 
