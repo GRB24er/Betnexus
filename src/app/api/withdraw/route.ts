@@ -5,6 +5,8 @@ import { Transaction } from "@/models/Transaction";
 import { User } from "@/models/User";
 import { badRequest, getCurrentUser, serverError, unauthorized } from "@/lib/auth";
 import { generateReference } from "@/lib/reference";
+import { rateLimit, PAYMENT_RATE_LIMIT } from "@/lib/rateLimit";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -18,6 +20,9 @@ const withdrawSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = await rateLimit(req, PAYMENT_RATE_LIMIT);
+    if (limited) return limited;
+
     const user = await getCurrentUser();
     if (!user) return unauthorized();
 
@@ -80,6 +85,15 @@ export async function POST(req: NextRequest) {
       balanceBefore: before,
       balanceAfter: fresh.balance,
       metadata: { requestedAt: new Date().toISOString() },
+    });
+
+    void logAudit({
+      userId: fresh._id,
+      action: "withdraw.request",
+      resource: "transaction",
+      resourceId: tx.reference,
+      details: { amount, method },
+      req,
     });
 
     return NextResponse.json({

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useSession } from "@/store/session";
+import SearchModal, { useSearchModal } from "@/components/SearchModal";
 
 const mobileNav = [
   { href: "/", label: "Home", icon: Home },
@@ -29,10 +30,10 @@ const mobileNav = [
 ];
 
 export default function Header() {
-  const [searchOpen, setSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const { user } = useSession();
+  const { open: searchOpen, setOpen: setSearchOpen } = useSearchModal();
 
   return (
     <>
@@ -55,19 +56,16 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Bar (opens modal) */}
         <div className="flex-1 max-w-xl hidden sm:block">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5a6485]" />
-            <input
-              type="text"
-              placeholder="Search events, teams, or markets..."
-              className="w-full bg-[#1c2033] border border-[#2a3050] rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-[#5a6485] focus:outline-none focus:border-[#00d46e]/50 focus:ring-1 focus:ring-[#00d46e]/20 transition-all"
-            />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#5a6485] bg-[#2a3050] px-1.5 py-0.5 rounded hidden md:inline">
-              ⌘K
-            </kbd>
-          </div>
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="w-full flex items-center gap-2 bg-[#1c2033] border border-[#2a3050] rounded-lg px-3 py-2 text-sm text-[#5a6485] hover:border-[#00d46e]/30 transition-all text-left"
+          >
+            <Search className="w-4 h-4 shrink-0" />
+            <span className="flex-1">Search events, teams, or markets...</span>
+            <kbd className="text-[10px] bg-[#2a3050] px-1.5 py-0.5 rounded hidden md:inline">⌘K</kbd>
+          </button>
         </div>
 
         {/* Mobile search toggle */}
@@ -112,20 +110,8 @@ export default function Header() {
         </div>
       </header>
 
-      {/* Mobile Search Bar */}
-      {searchOpen && (
-        <div className="fixed top-16 left-0 right-0 bg-[#161925] border-b border-[#2a3050] p-4 z-30 sm:hidden">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5a6485]" />
-            <input
-              type="text"
-              placeholder="Search events, teams..."
-              className="w-full bg-[#1c2033] border border-[#2a3050] rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-[#5a6485] focus:outline-none focus:border-[#00d46e]/50"
-              autoFocus
-            />
-          </div>
-        </div>
-      )}
+      {/* Search Modal */}
+      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (

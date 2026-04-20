@@ -8,6 +8,8 @@ import {
   setSessionCookie,
   signToken,
 } from "@/lib/auth";
+import { rateLimit, AUTH_RATE_LIMIT } from "@/lib/rateLimit";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -18,6 +20,9 @@ const loginSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = await rateLimit(req, AUTH_RATE_LIMIT);
+    if (limited) return limited;
+
     const body = await req.json();
     const parsed = loginSchema.safeParse(body);
     if (!parsed.success) {
@@ -62,6 +67,14 @@ export async function POST(req: NextRequest) {
       role: user.role,
     });
     await setSessionCookie(token);
+
+    void logAudit({
+      userId: user._id,
+      action: "user.login",
+      resource: "user",
+      resourceId: user._id.toString(),
+      req,
+    });
 
     return NextResponse.json({ user: user.toPublicJSON() });
   } catch (err) {

@@ -5,6 +5,8 @@ import { Transaction } from "@/models/Transaction";
 import { badRequest, getCurrentUser, serverError, unauthorized } from "@/lib/auth";
 import { initializeTransaction, toMinorUnit, type PaystackChannel } from "@/lib/paystack";
 import { generateReference } from "@/lib/reference";
+import { rateLimit, PAYMENT_RATE_LIMIT } from "@/lib/rateLimit";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -17,6 +19,9 @@ const initSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = await rateLimit(req, PAYMENT_RATE_LIMIT);
+    if (limited) return limited;
+
     const user = await getCurrentUser();
     if (!user) return unauthorized();
 
@@ -61,6 +66,15 @@ export async function POST(req: NextRequest) {
         accountNumber,
         cryptoAddress,
       },
+    });
+
+    void logAudit({
+      userId: user._id,
+      action: "deposit.init",
+      resource: "transaction",
+      resourceId: reference,
+      details: { amount, method },
+      req,
     });
 
     return NextResponse.json({

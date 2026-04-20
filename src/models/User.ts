@@ -1,5 +1,6 @@
 import mongoose, { Schema, Model, HydratedDocument } from "mongoose";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 export interface IUser {
   email: string;
@@ -10,15 +11,23 @@ export interface IUser {
   dateOfBirth?: Date;
   country?: string;
   balance: number;
+  bonusBalance: number;
   currency: string;
   kycVerified: boolean;
+  kycStatus: "none" | "pending" | "approved" | "rejected";
   twoFactorEnabled: boolean;
   role: "user" | "admin";
   status: "active" | "suspended" | "self-excluded";
+  referralCode: string;
+  referredBy?: string;
+  depositLimit?: number;
+  lossLimit?: number;
+  sessionLimit?: number;
   totalDeposited: number;
   totalWithdrawn: number;
   totalWagered: number;
   totalWon: number;
+  totalReferrals: number;
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -49,8 +58,14 @@ const UserSchema = new Schema<IUser, UserModel, IUserMethods>(
     dateOfBirth: { type: Date },
     country: { type: String, default: "Ghana" },
     balance: { type: Number, default: 0, min: 0 },
+    bonusBalance: { type: Number, default: 0, min: 0 },
     currency: { type: String, default: "GHS" },
     kycVerified: { type: Boolean, default: false },
+    kycStatus: {
+      type: String,
+      enum: ["none", "pending", "approved", "rejected"],
+      default: "none",
+    },
     twoFactorEnabled: { type: Boolean, default: false },
     role: { type: String, enum: ["user", "admin"], default: "user" },
     status: {
@@ -58,16 +73,25 @@ const UserSchema = new Schema<IUser, UserModel, IUserMethods>(
       enum: ["active", "suspended", "self-excluded"],
       default: "active",
     },
+    referralCode: { type: String, unique: true, sparse: true, index: true },
+    referredBy: { type: String },
+    depositLimit: { type: Number },
+    lossLimit: { type: Number },
+    sessionLimit: { type: Number },
     totalDeposited: { type: Number, default: 0 },
     totalWithdrawn: { type: Number, default: 0 },
     totalWagered: { type: Number, default: 0 },
     totalWon: { type: Number, default: 0 },
+    totalReferrals: { type: Number, default: 0 },
     lastLoginAt: { type: Date },
   },
   { timestamps: true }
 );
 
 UserSchema.pre("save", async function () {
+  if (this.isNew && !this.referralCode) {
+    this.referralCode = `BN${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+  }
   if (!this.isModified("password")) return;
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);

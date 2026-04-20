@@ -6,6 +6,8 @@ import { Transaction } from "@/models/Transaction";
 import { User } from "@/models/User";
 import { badRequest, getCurrentUser, serverError, unauthorized } from "@/lib/auth";
 import { generateReference } from "@/lib/reference";
+import { rateLimit, BET_RATE_LIMIT } from "@/lib/rateLimit";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -30,6 +32,9 @@ const MAX_PAYOUT = 1_000_000;
 
 export async function POST(req: NextRequest) {
   try {
+    const limited = await rateLimit(req, BET_RATE_LIMIT);
+    if (limited) return limited;
+
     const user = await getCurrentUser();
     if (!user) return unauthorized();
 
@@ -93,6 +98,15 @@ export async function POST(req: NextRequest) {
       balanceBefore: before,
       balanceAfter: fresh.balance,
       metadata: { betId: bet._id.toString(), betRef: reference },
+    });
+
+    void logAudit({
+      userId: fresh._id,
+      action: "bet.place",
+      resource: "bet",
+      resourceId: bet._id.toString(),
+      details: { stake, totalOdds, selections: selections.length, type },
+      req,
     });
 
     return NextResponse.json({
