@@ -2,8 +2,12 @@ export interface Match {
   id: string;
   league: string;
   leagueIcon?: string;
+  leagueLogo?: string;
+  countryFlag?: string;
   homeTeam: string;
   awayTeam: string;
+  homeLogo?: string;
+  awayLogo?: string;
   homeScore?: number;
   awayScore?: number;
   time: string;

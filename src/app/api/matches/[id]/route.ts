@@ -6,6 +6,7 @@ import {
   SUPPORTED_SPORTS,
   findSportKeyForEvent,
 } from "@/lib/oddsapi";
+import { findFixture, getMatchLogos } from "@/lib/apifootball";
 import { serverError } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -78,6 +79,23 @@ export async function GET(
       } catch (err) {
         console.warn(`[api/matches/[id]] Failed to fetch markets:`, err);
         // Don't fail the whole request — just return match without markets
+      }
+    }
+
+    // Enrich with API-Football data (logos, league logo, country flag).
+    // Only attempt for football — other sports aren't covered by api-football.
+    // Runs in parallel and is fully optional: if the key is missing or the
+    // lookup fails, we return the match unchanged.
+    if (match.sport === "football") {
+      const [logos, fixture] = await Promise.all([
+        getMatchLogos(match.homeTeam, match.awayTeam),
+        findFixture(match.homeTeam, match.awayTeam),
+      ]);
+      if (logos.homeLogo) match.homeLogo = logos.homeLogo;
+      if (logos.awayLogo) match.awayLogo = logos.awayLogo;
+      if (fixture) {
+        if (fixture.league.logo) match.leagueLogo = fixture.league.logo;
+        if (fixture.league.flag) match.countryFlag = fixture.league.flag;
       }
     }
 
