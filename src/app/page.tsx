@@ -17,7 +17,6 @@ import {
   Clock,
 } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import MatchCard from "@/components/MatchCard";
 import { promotions, virtualGames, casinoGames, Match } from "@/lib/data";
 
@@ -137,7 +136,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
-      {/* ═══ HERO BANNER CAROUSEL (Bet365 + Betway style) ═══ */}
+      {/* ═══ HERO BANNER CAROUSEL ═══ */}
       <section className="relative overflow-hidden">
         <div className="relative h-[280px] sm:h-[340px] lg:h-[400px]">
           {heroBanners.map((banner, i) => (
@@ -147,13 +146,12 @@ export default function HomePage() {
                 i === currentBanner ? "opacity-100 scale-100" : "opacity-0 scale-105"
               }`}
             >
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={banner.image}
                 alt={banner.title}
-                fill
-                sizes="100vw"
-                className="object-cover"
-                priority={i === 0}
+                className="absolute inset-0 w-full h-full object-cover"
+                loading={i === 0 ? "eager" : "lazy"}
               />
               {/* Dark gradient overlay for text readability */}
               <div className="absolute inset-0 bg-gradient-to-r from-[#0a0c14]/90 via-[#0a0c14]/60 to-transparent" />
@@ -219,7 +217,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ PROMO CARDS (Bet365 style) ═══ */}
+      {/* ═══ PROMO CARDS ═══ */}
       <section className="px-4 lg:px-6 py-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
           {promoCards.map((promo, i) => (
@@ -229,12 +227,12 @@ export default function HomePage() {
               className="group relative rounded-xl overflow-hidden card-hover"
             >
               <div className="relative h-40 sm:h-48">
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={promo.image}
                   alt={promo.title}
-                  fill
-                  sizes="(max-width: 768px) 50vw, 25vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
@@ -292,7 +290,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ POPULAR SPORTS (with images — Betway style) ═══ */}
+      {/* ═══ POPULAR SPORTS ═══ */}
       <section className="px-4 lg:px-6 py-6">
         <h2 className="text-lg font-bold text-white mb-4">Popular Sports</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
@@ -304,12 +302,12 @@ export default function HomePage() {
             >
               {sport.image ? (
                 <div className="relative h-28 sm:h-32">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={sport.image}
                     alt={sport.name}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                    className="object-cover group-hover:scale-110 transition-transform duration-500"
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    loading="lazy"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center gap-2">
@@ -361,29 +359,27 @@ export default function HomePage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-[#8b5cf6]/10 flex items-center justify-center">
-              <Timer className="w-4 h-4 text-[#8b5cf6]" />
+              <Flame className="w-4 h-4 text-[#8b5cf6]" />
             </div>
             <h2 className="text-lg font-bold text-white">Virtual Games</h2>
-            <span className="text-[9px] font-bold bg-[#8b5cf6]/15 text-[#8b5cf6] px-2 py-0.5 rounded-full">24/7</span>
           </div>
-          <Link
-            href="/virtuals"
-            className="text-sm text-[#00d46e] hover:text-[#00b85c] flex items-center gap-1 font-medium group"
-          >
+          <Link href="/virtuals" className="text-sm text-[#00d46e] hover:text-[#00b85c] flex items-center gap-1 font-medium group">
             View All <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
           {virtualGames.slice(0, 6).map((game) => (
             <Link
               key={game.id}
               href="/virtuals"
-              className={`bg-gradient-to-br ${game.gradient} rounded-xl p-4 text-center card-hover group relative overflow-hidden`}
+              className="group rounded-xl overflow-hidden bg-[#141724] border border-[#2a3050]/50 card-hover"
             >
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-              <span className="text-4xl block mb-2 group-hover:scale-110 transition-transform">{game.image}</span>
-              <p className="text-xs font-semibold text-white truncate">{game.name}</p>
-              <p className="text-[10px] text-white/60 mt-1">{game.nextRace}</p>
+              <div className="aspect-square bg-gradient-to-b from-[#8b5cf6]/20 to-transparent flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
+                {game.image}
+              </div>
+              <div className="p-2 text-center">
+                <p className="text-[10px] sm:text-xs font-medium text-white truncate">{game.name}</p>
+              </div>
             </Link>
           ))}
         </div>
@@ -393,38 +389,27 @@ export default function HomePage() {
       <section className="px-4 lg:px-6 py-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#ff6b35]/10 flex items-center justify-center">
-              <Flame className="w-4 h-4 text-[#ff6b35]" />
+            <div className="w-7 h-7 rounded-lg bg-[#ffc107]/10 flex items-center justify-center">
+              <Star className="w-4 h-4 text-[#ffc107]" />
             </div>
-            <h2 className="text-lg font-bold text-white">Popular Casino Games</h2>
+            <h2 className="text-lg font-bold text-white">Casino Games</h2>
           </div>
-          <Link
-            href="/casino"
-            className="text-sm text-[#00d46e] hover:text-[#00b85c] flex items-center gap-1 font-medium group"
-          >
+          <Link href="/casino" className="text-sm text-[#00d46e] hover:text-[#00b85c] flex items-center gap-1 font-medium group">
             View All <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
           {casinoGames.slice(0, 6).map((game) => (
-            <Link key={game.id} href="/casino" className="group relative">
-              <div
-                className={`bg-gradient-to-br ${game.gradient} rounded-xl p-4 h-36 flex flex-col items-center justify-center relative overflow-hidden card-hover`}
-              >
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                {game.isHot && (
-                  <span className="absolute top-2 right-2 text-[9px] font-bold gradient-live text-white px-1.5 py-0.5 rounded-full">
-                    HOT
-                  </span>
-                )}
-                {game.isNew && (
-                  <span className="absolute top-2 right-2 text-[9px] font-bold gradient-blue text-white px-1.5 py-0.5 rounded-full">
-                    NEW
-                  </span>
-                )}
-                <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">{game.image}</span>
-                <p className="text-xs font-semibold text-white text-center truncate w-full">{game.name}</p>
-                <p className="text-[10px] text-white/60 mt-0.5">{game.provider}</p>
+            <Link
+              key={game.id}
+              href="/casino"
+              className="group rounded-xl overflow-hidden bg-[#141724] border border-[#2a3050]/50 card-hover"
+            >
+              <div className="aspect-square bg-gradient-to-b from-[#ffc107]/20 to-transparent flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
+                {game.image}
+              </div>
+              <div className="p-2 text-center">
+                <p className="text-[10px] sm:text-xs font-medium text-white truncate">{game.name}</p>
               </div>
             </Link>
           ))}
@@ -432,90 +417,70 @@ export default function HomePage() {
       </section>
 
       {/* ═══ TRUST BADGES ═══ */}
-      <section className="px-4 lg:px-6 py-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <section className="px-4 lg:px-6 py-8 border-t border-[#2a3050]/50">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { icon: <Shield className="w-5 h-5" />, title: "Licensed & Secure", desc: "Fully regulated platform", color: "text-[#00d46e]" },
-            { icon: <CreditCard className="w-5 h-5" />, title: "Instant Deposits", desc: "Via Paystack & Mobile Money", color: "text-[#3b82f6]" },
-            { icon: <Clock className="w-5 h-5" />, title: "Fast Payouts", desc: "Withdrawals within 24hrs", color: "text-[#ffc107]" },
-            { icon: <Headphones className="w-5 h-5" />, title: "24/7 Support", desc: "Always here to help", color: "text-[#8b5cf6]" },
-          ].map((badge) => (
-            <div key={badge.title} className="bg-[#1c2033]/50 border border-[#2a3050] rounded-xl p-4 text-center card-hover">
-              <div className={`${badge.color} flex justify-center mb-2`}>{badge.icon}</div>
-              <p className="text-xs font-bold text-white mb-0.5">{badge.title}</p>
-              <p className="text-[10px] text-[#5a6485]">{badge.desc}</p>
+            { icon: <Shield className="w-6 h-6" />, title: "Licensed & Secure", desc: "Fully regulated platform", color: "text-[#00d46e]" },
+            { icon: <CreditCard className="w-6 h-6" />, title: "Instant Deposits", desc: "Mobile Money & Cards", color: "text-[#3b82f6]" },
+            { icon: <Clock className="w-6 h-6" />, title: "Fast Payouts", desc: "Withdraw in minutes", color: "text-[#ffc107]" },
+            { icon: <Headphones className="w-6 h-6" />, title: "24/7 Support", desc: "Always here to help", color: "text-[#8b5cf6]" },
+          ].map((badge, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-[#141724]/50 border border-[#2a3050]/30">
+              <div className={`${badge.color}`}>{badge.icon}</div>
+              <div>
+                <p className="text-xs font-bold text-white">{badge.title}</p>
+                <p className="text-[10px] text-[#5a6485]">{badge.desc}</p>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
       {/* ═══ FOOTER ═══ */}
-      <footer className="px-4 lg:px-6 py-8 border-t border-[#2a3050] mt-2 bg-[#0d0f16]">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+      <footer className="border-t border-[#2a3050]/50 bg-[#0a0c14] px-4 lg:px-6 py-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
           <div>
-            <h4 className="text-sm font-semibold text-white mb-3">Sports</h4>
+            <h4 className="text-xs font-bold text-white mb-3">Sports</h4>
             <div className="space-y-2">
-              {[
-                { n: "Football", h: "/sports?cat=football" },
-                { n: "Basketball", h: "/sports?cat=basketball" },
-                { n: "Tennis", h: "/sports?cat=tennis" },
-                { n: "Cricket", h: "/sports?cat=cricket" },
-                { n: "MMA", h: "/sports?cat=mma" },
-              ].map((s) => (
-                <Link key={s.n} href={s.h} className="block text-xs text-[#5a6485] hover:text-[#00d46e] transition-colors">{s.n}</Link>
+              {["Football", "Basketball", "Tennis", "Cricket", "MMA"].map((s) => (
+                <Link key={s} href={`/sports?cat=${s.toLowerCase()}`} className="block text-xs text-[#5a6485] hover:text-white transition-colors">{s}</Link>
               ))}
             </div>
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-white mb-3">Casino</h4>
+            <h4 className="text-xs font-bold text-white mb-3">Quick Links</h4>
             <div className="space-y-2">
-              {["Slots", "Live Casino", "Table Games", "Crash Games", "Jackpots"].map((s) => (
-                <Link key={s} href="/casino" className="block text-xs text-[#5a6485] hover:text-[#00d46e] transition-colors">{s}</Link>
+              {[{ label: "Live Betting", href: "/live" }, { label: "Virtuals", href: "/virtuals" }, { label: "Casino", href: "/casino" }, { label: "Promotions", href: "/promotions" }].map((l) => (
+                <Link key={l.label} href={l.href} className="block text-xs text-[#5a6485] hover:text-white transition-colors">{l.label}</Link>
               ))}
             </div>
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-white mb-3">Support</h4>
+            <h4 className="text-xs font-bold text-white mb-3">Support</h4>
             <div className="space-y-2">
-              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#00d46e] transition-colors">Help Center</Link>
-              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#00d46e] transition-colors">Live Chat</Link>
-              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#00d46e] transition-colors">FAQs</Link>
-              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#00d46e] transition-colors">Contact Us</Link>
-              <Link href="/responsible-gaming" className="block text-xs text-[#5a6485] hover:text-[#00d46e] transition-colors">Responsible Gaming</Link>
+              {[{ label: "Help Center", href: "/help" }, { label: "Contact Us", href: "/help" }, { label: "Responsible Gaming", href: "/responsible-gaming" }].map((l) => (
+                <Link key={l.label} href={l.href} className="block text-xs text-[#5a6485] hover:text-white transition-colors">{l.label}</Link>
+              ))}
             </div>
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-white mb-3">Legal</h4>
-            <div className="space-y-2">
-              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#00d46e] transition-colors">Terms of Service</Link>
-              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#00d46e] transition-colors">Privacy Policy</Link>
-              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#00d46e] transition-colors">Cookie Policy</Link>
-              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#00d46e] transition-colors">Betting Rules</Link>
-              <Link href="/help" className="block text-xs text-[#5a6485] hover:text-[#00d46e] transition-colors">License Info</Link>
+            <h4 className="text-xs font-bold text-white mb-3">Payment Methods</h4>
+            <div className="flex flex-wrap gap-2">
+              {["MTN MoMo", "Telecel Cash", "AirtelTigo", "Visa", "Mastercard"].map((m) => (
+                <span key={m} className="text-[10px] text-[#5a6485] bg-[#141724] px-2 py-1 rounded">{m}</span>
+              ))}
             </div>
           </div>
         </div>
-
-        {/* Payment Methods */}
-        <div className="flex flex-wrap items-center justify-center gap-4 py-4 border-t border-[#2a3050] mb-4">
-          {["Paystack", "MTN MoMo", "Vodafone Cash", "AirtelTigo", "Visa", "Mastercard"].map((m) => (
-            <span key={m} className="text-[10px] font-medium text-[#5a6485] bg-[#1c2033] px-3 py-1.5 rounded-lg border border-[#2a3050]">
-              {m}
-            </span>
-          ))}
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[#2a3050]">
+        <div className="border-t border-[#2a3050]/30 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md gradient-green flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white" fill="white" />
+            <div className="w-6 h-6 rounded-md gradient-green flex items-center justify-center">
+              <Zap className="w-3.5 h-3.5 text-white" fill="white" />
             </div>
-            <span className="text-sm font-bold text-white">
-              Bet<span className="text-[#00d46e]">Nexus</span>
-            </span>
+            <span className="text-sm font-bold text-white">BetNexus</span>
           </div>
-          <p className="text-[11px] text-[#5a6485] text-center">
-            18+ | <Link href="/responsible-gaming" className="hover:text-[#00d46e] transition-colors">Gamble Responsibly</Link> | BetNexus is licensed and regulated. All rights reserved &copy; {new Date().getFullYear()}
+          <p className="text-[10px] text-[#5a6485] text-center">
+            &copy; {new Date().getFullYear()} BetNexus. All rights reserved. 18+ | Gamble Responsibly.
           </p>
         </div>
       </footer>
@@ -523,25 +488,13 @@ export default function HomePage() {
   );
 }
 
-function StatCard({
-  icon,
-  label,
-  value,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  color: string;
-}) {
+function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
   return (
-    <div className="px-3 sm:px-4 py-3 sm:py-3.5 flex items-center gap-2 sm:gap-3">
-      <div className={`w-9 h-9 rounded-lg bg-[#0f1118]/50 flex items-center justify-center ${color} shrink-0`}>
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] sm:text-[11px] text-[#5a6485] truncate">{label}</p>
-        <p className={`text-sm sm:text-base font-bold ${color}`}>{value}</p>
+    <div className="flex items-center gap-2.5 px-4 py-3 justify-center">
+      <div className={`${color}`}>{icon}</div>
+      <div>
+        <p className="text-xs sm:text-sm font-bold text-white">{value}</p>
+        <p className="text-[10px] text-[#5a6485]">{label}</p>
       </div>
     </div>
   );
