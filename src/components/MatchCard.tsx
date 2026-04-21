@@ -3,9 +3,10 @@
 import { useSyncExternalStore } from "react";
 import { Match } from "@/lib/data";
 import { betSlipStore } from "@/store/betslip";
-import { getTeamColors, getTeamAbbr } from "@/lib/teamColors";
+import { getTeamColors } from "@/lib/teamColors";
 import { Clock } from "lucide-react";
 import Link from "next/link";
+import TeamBadge from "@/components/TeamBadge";
 
 interface MatchCardProps {
   match: Match;
@@ -95,32 +96,14 @@ export default function MatchCard({ match, variant = "default" }: MatchCardProps
             <div className="flex-1 min-w-0">
               {/* Home Team */}
               <div className="flex items-center gap-2.5 mb-2.5">
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 border"
-                  style={{
-                    background: `linear-gradient(135deg, ${homeColors.primary}, ${homeColors.primary}cc)`,
-                    borderColor: `${homeColors.primary}60`,
-                    color: homeColors.text,
-                  }}
-                >
-                  {getTeamAbbr(match.homeTeam).substring(0, 2)}
-                </div>
+                <TeamBadge name={match.homeTeam} logo={match.homeLogo} size="md" />
                 <p className="text-sm font-semibold text-white truncate">
                   {match.homeTeam}
                 </p>
               </div>
               {/* Away Team */}
               <div className="flex items-center gap-2.5">
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 border"
-                  style={{
-                    background: `linear-gradient(135deg, ${awayColors.primary}, ${awayColors.primary}cc)`,
-                    borderColor: `${awayColors.primary}60`,
-                    color: awayColors.text,
-                  }}
-                >
-                  {getTeamAbbr(match.awayTeam).substring(0, 2)}
-                </div>
+                <TeamBadge name={match.awayTeam} logo={match.awayLogo} size="md" />
                 <p className="text-sm font-semibold text-white truncate">
                   {match.awayTeam}
                 </p>
@@ -240,15 +223,7 @@ export default function MatchCard({ match, variant = "default" }: MatchCardProps
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <div
-                    className="w-4 h-4 rounded flex items-center justify-center text-[7px] font-bold shrink-0"
-                    style={{
-                      backgroundColor: homeColors.primary,
-                      color: homeColors.text,
-                    }}
-                  >
-                    {match.homeTeam.charAt(0)}
-                  </div>
+                  <TeamBadge name={match.homeTeam} logo={match.homeLogo} size="xs" />
                   <span className="text-xs font-medium text-white truncate">
                     {match.homeTeam}
                   </span>
@@ -261,15 +236,7 @@ export default function MatchCard({ match, variant = "default" }: MatchCardProps
               </div>
               <div className="flex items-center justify-between mt-1.5">
                 <div className="flex items-center gap-1.5">
-                  <div
-                    className="w-4 h-4 rounded flex items-center justify-center text-[7px] font-bold shrink-0"
-                    style={{
-                      backgroundColor: awayColors.primary,
-                      color: awayColors.text,
-                    }}
-                  >
-                    {match.awayTeam.charAt(0)}
-                  </div>
+                  <TeamBadge name={match.awayTeam} logo={match.awayLogo} size="xs" />
                   <span className="text-xs font-medium text-white truncate">
                     {match.awayTeam}
                   </span>
@@ -365,16 +332,7 @@ export default function MatchCard({ match, variant = "default" }: MatchCardProps
             {/* Home */}
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <div
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-bold shrink-0 border"
-                  style={{
-                    background: `linear-gradient(135deg, ${homeColors.primary}, ${homeColors.primary}cc)`,
-                    borderColor: `${homeColors.primary}50`,
-                    color: homeColors.text,
-                  }}
-                >
-                  {getTeamAbbr(match.homeTeam).substring(0, 2)}
-                </div>
+                <TeamBadge name={match.homeTeam} logo={match.homeLogo} size="sm" />
                 <span className="text-sm font-medium text-white truncate">
                   {match.homeTeam}
                 </span>
@@ -388,16 +346,7 @@ export default function MatchCard({ match, variant = "default" }: MatchCardProps
             {/* Away */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-bold shrink-0 border"
-                  style={{
-                    background: `linear-gradient(135deg, ${awayColors.primary}, ${awayColors.primary}cc)`,
-                    borderColor: `${awayColors.primary}50`,
-                    color: awayColors.text,
-                  }}
-                >
-                  {getTeamAbbr(match.awayTeam).substring(0, 2)}
-                </div>
+                <TeamBadge name={match.awayTeam} logo={match.awayLogo} size="sm" />
                 <span className="text-sm font-medium text-white truncate">
                   {match.awayTeam}
                 </span>

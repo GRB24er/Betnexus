@@ -13,6 +13,8 @@ import {
 import { Match } from "@/lib/data";
 import { betSlipStore } from "@/store/betslip";
 import { getTeamColors, getTeamAbbr } from "@/lib/teamColors";
+import TeamBadge from "@/components/TeamBadge";
+import MatchLivePanel from "@/components/MatchLivePanel";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Types
@@ -128,6 +130,22 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
               <span className="text-xs font-medium hidden sm:inline">Back</span>
             </Link>
             <div className="flex items-center gap-2 text-center">
+              {match.countryFlag && (
+                <img
+                  src={match.countryFlag}
+                  alt=""
+                  loading="lazy"
+                  className="h-3 w-auto rounded-sm"
+                />
+              )}
+              {match.leagueLogo && (
+                <img
+                  src={match.leagueLogo}
+                  alt=""
+                  loading="lazy"
+                  className="h-4 w-4 object-contain"
+                />
+              )}
               <span className="text-[10px] text-[#8b95b8] uppercase tracking-widest font-semibold">
                 {match.league}
               </span>
@@ -164,20 +182,13 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
           <div className="flex items-center justify-center gap-3 sm:gap-8 py-3 sm:py-5">
             {/* Home Team */}
             <div className="flex-1 text-center">
-              <div
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center mx-auto mb-2 border-2 shadow-lg"
-                style={{
-                  background: `linear-gradient(135deg, ${homeColors.primary}, ${homeColors.primary}dd)`,
-                  borderColor: `${homeColors.primary}80`,
-                  boxShadow: `0 4px 20px ${homeColors.primary}30`,
-                }}
-              >
-                <span
-                  className="text-2xl sm:text-3xl font-black"
-                  style={{ color: homeColors.text }}
-                >
-                  {getTeamAbbr(match.homeTeam).substring(0, 2)}
-                </span>
+              <div className="mx-auto mb-2 flex justify-center">
+                <TeamBadge
+                  name={match.homeTeam}
+                  logo={match.homeLogo}
+                  size="xl"
+                  className="shadow-lg border-2"
+                />
               </div>
               <p className="text-sm sm:text-base font-bold text-white truncate px-1">
                 {match.homeTeam}
@@ -217,20 +228,13 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
 
             {/* Away Team */}
             <div className="flex-1 text-center">
-              <div
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center mx-auto mb-2 border-2 shadow-lg"
-                style={{
-                  background: `linear-gradient(135deg, ${awayColors.primary}, ${awayColors.primary}dd)`,
-                  borderColor: `${awayColors.primary}80`,
-                  boxShadow: `0 4px 20px ${awayColors.primary}30`,
-                }}
-              >
-                <span
-                  className="text-2xl sm:text-3xl font-black"
-                  style={{ color: awayColors.text }}
-                >
-                  {getTeamAbbr(match.awayTeam).substring(0, 2)}
-                </span>
+              <div className="mx-auto mb-2 flex justify-center">
+                <TeamBadge
+                  name={match.awayTeam}
+                  logo={match.awayLogo}
+                  size="xl"
+                  className="shadow-lg border-2"
+                />
               </div>
               <p className="text-sm sm:text-base font-bold text-white truncate px-1">
                 {match.awayTeam}
@@ -279,6 +283,16 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
           </div>
         </div>
       </div>
+
+      {/* ═══ MATCH CENTER (Lineups + Events from API-Football) ═══ */}
+      {match.sport === "football" && (
+        <MatchLivePanel
+          matchId={match.id}
+          homeTeam={match.homeTeam}
+          awayTeam={match.awayTeam}
+          isLive={match.isLive}
+        />
+      )}
 
       {/* ═══ MARKET TABS — Sticky ═══ */}
       <div className="sticky top-0 z-30 bg-[#0f1118] border-b border-[#2a3050]">
