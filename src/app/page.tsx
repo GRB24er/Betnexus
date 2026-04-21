@@ -22,79 +22,99 @@ import { virtualGames, casinoGames, Match } from "@/lib/data";
 const heroBanners = [
   {
     image: "/images/banners/hero-football.jpg",
+    fallback: "https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1600&q=80",
     title: "Premium Sports Betting",
     subtitle: "Bet on the world's biggest football leagues with the best odds.",
     cta: "Bet Now",
     ctaLink: "/sports?cat=football",
     badge: "FOOTBALL",
     badgeColor: "#00d46e",
+    gradient: "linear-gradient(135deg, #0a4d2e 0%, #0d1b2a 50%, #1a1a2e 100%)",
   },
   {
     image: "/images/banners/hero-basketball.jpg",
+    fallback: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=1600&q=80",
     title: "Elevate Your Game",
     subtitle: "NBA, EuroLeague & more. Live odds updated every second.",
     cta: "View Basketball",
     ctaLink: "/sports?cat=basketball",
     badge: "BASKETBALL",
     badgeColor: "#ff6b35",
+    gradient: "linear-gradient(135deg, #4d2600 0%, #1a0a00 50%, #1a1a2e 100%)",
   },
   {
     image: "/images/banners/hero-live.jpg",
+    fallback: "https://images.unsplash.com/photo-1517466787929-bc90951d0974?w=1600&q=80",
     title: "Live Betting",
     subtitle: "Every moment matters. Bet in real-time on live matches across all sports.",
     cta: "Go Live",
     ctaLink: "/live",
     badge: "LIVE",
     badgeColor: "#ff4757",
+    gradient: "linear-gradient(135deg, #4d0a14 0%, #1a0a0e 50%, #1a1a2e 100%)",
   },
   {
     image: "/images/banners/hero-cashout.jpg",
+    fallback: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=1600&q=80",
     title: "Instant Cash Out",
     subtitle: "Take your winnings early. Cash out anytime before the match ends.",
     cta: "Start Winning",
     ctaLink: "/sports",
     badge: "CASH OUT",
     badgeColor: "#ffc107",
+    gradient: "linear-gradient(135deg, #4d3a00 0%, #1a1400 50%, #1a1a2e 100%)",
   },
 ];
 
 const promoCards = [
   {
     image: "/images/promos/welcome-bonus.jpg",
+    fallback: "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=800&q=80",
     title: "Welcome Bonus",
     desc: "Get up to 100% bonus on your first deposit. Start winning big today!",
     cta: "Claim Now",
     link: "/deposit",
+    icon: "🎁",
+    gradient: "linear-gradient(135deg, #00d46e33, #0a0c14)",
   },
   {
     image: "/images/promos/live-betting.jpg",
+    fallback: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&q=80",
     title: "Live Betting",
     desc: "Bet on matches as they happen. Real-time odds, real-time action.",
     cta: "Bet Live",
     link: "/live",
+    icon: "🔴",
+    gradient: "linear-gradient(135deg, #ff475733, #0a0c14)",
   },
   {
     image: "/images/promos/multi-bet.jpg",
+    fallback: "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?w=800&q=80",
     title: "Accumulator Boost",
     desc: "Combine multiple bets and multiply your winnings up to 10x!",
     cta: "Build Acca",
     link: "/sports",
+    icon: "🚀",
+    gradient: "linear-gradient(135deg, #ffc10733, #0a0c14)",
   },
   {
     image: "/images/promos/virtual-sports.jpg",
+    fallback: "https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=800&q=80",
     title: "Virtual Sports",
     desc: "24/7 virtual football, basketball, racing & more. Instant results.",
     cta: "Play Now",
     link: "/virtuals",
+    icon: "🎮",
+    gradient: "linear-gradient(135deg, #8b5cf633, #0a0c14)",
   },
 ];
 
 const sportCategories = [
-  { name: "Football", icon: "\u26BD", image: "/images/sports/football-header.jpg", borderColor: "#00d46e", href: "/sports?cat=football" },
-  { name: "Basketball", icon: "\uD83C\uDFC0", image: "/images/sports/basketball-header.jpg", borderColor: "#ff6b35", href: "/sports?cat=basketball" },
-  { name: "Tennis", icon: "\uD83C\uDFBE", image: "/images/sports/tennis-header.jpg", borderColor: "#ffc107", href: "/sports?cat=tennis" },
-  { name: "Cricket", icon: "\uD83C\uDFCF", image: "/images/sports/cricket-header.jpg", borderColor: "#3b82f6", href: "/sports?cat=cricket" },
-  { name: "MMA", icon: "\uD83E\uDD4A", image: "/images/sports/mma-header.jpg", borderColor: "#8b5cf6", href: "/sports?cat=mma" },
+  { name: "Football", icon: "\u26BD", image: "/images/sports/football-header.jpg", fallback: "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=800&q=80", borderColor: "#00d46e", href: "/sports?cat=football" },
+  { name: "Basketball", icon: "\uD83C\uDFC0", image: "/images/sports/basketball-header.jpg", fallback: "https://images.unsplash.com/photo-1519861531473-9200262188bf?w=800&q=80", borderColor: "#ff6b35", href: "/sports?cat=basketball" },
+  { name: "Tennis", icon: "\uD83C\uDFBE", image: "/images/sports/tennis-header.jpg", fallback: "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&q=80", borderColor: "#ffc107", href: "/sports?cat=tennis" },
+  { name: "Cricket", icon: "\uD83C\uDFCF", image: "/images/sports/cricket-header.jpg", fallback: "https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=800&q=80", borderColor: "#3b82f6", href: "/sports?cat=cricket" },
+  { name: "MMA", icon: "\uD83E\uDD4A", image: "/images/sports/mma-header.jpg", fallback: "https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?w=800&q=80", borderColor: "#8b5cf6", href: "/sports?cat=mma" },
   { name: "Baseball", icon: "\u26BE", borderColor: "#ff4757", href: "/sports?cat=baseball" },
   { name: "Hockey", icon: "\uD83C\uDFD2", borderColor: "#06b6d4", href: "/sports?cat=ice-hockey" },
   { name: "Rugby", icon: "\uD83C\uDFC9", borderColor: "#10b981", href: "/sports?cat=rugby" },
@@ -160,7 +180,17 @@ export default function HomePage() {
                   objectFit: "cover",
                 }}
                 loading={i === 0 ? "eager" : "lazy"}
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  if (img.src !== banner.fallback) {
+                    img.src = banner.fallback;
+                  } else {
+                    img.style.display = "none";
+                  }
+                }}
               />
+              {/* Gradient fallback background in case both images fail */}
+              <div style={{ position: "absolute", inset: 0, background: banner.gradient, zIndex: -1 }} />
               <div style={{
                 position: "absolute",
                 inset: 0,
@@ -325,7 +355,19 @@ export default function HomePage() {
                   }}
                   className="group-hover:scale-105"
                   loading="lazy"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (img.src !== promo.fallback) {
+                      img.src = promo.fallback;
+                    } else {
+                      img.style.display = "none";
+                    }
+                  }}
                 />
+                {/* Gradient fallback + icon */}
+                <div style={{ position: "absolute", inset: 0, background: promo.gradient, zIndex: -1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: 48, opacity: 0.3 }}>{promo.icon}</span>
+                </div>
                 <div style={{
                   position: "absolute",
                   inset: 0,
@@ -400,7 +442,19 @@ export default function HomePage() {
                     }}
                     className="group-hover:scale-110"
                     loading="lazy"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      if (sport.fallback && img.src !== sport.fallback) {
+                        img.src = sport.fallback;
+                      } else {
+                        img.style.display = "none";
+                      }
+                    }}
                   />
+                  {/* Gradient fallback */}
+                  <div style={{ position: "absolute", inset: 0, background: `linear-gradient(to bottom, ${sport.borderColor}40, ${sport.borderColor}10)`, zIndex: -1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: 48, opacity: 0.3 }}>{sport.icon}</span>
+                  </div>
                   <div style={{
                     position: "absolute",
                     inset: 0,
