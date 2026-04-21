@@ -4,17 +4,23 @@ import path from "path";
 import { connectDB } from "@/lib/mongodb";
 import { KYCDocument } from "@/models/KYC";
 import { User } from "@/models/User";
-import { getCurrentUser, unauthorized, badRequest, serverError } from "@/lib/auth";
+import {
+  getCurrentUser,
+  unauthorized,
+  badRequest,
+  serverError,
+} from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
-const ALLOWED_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-];
+const ALLOWED_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "application/pdf": "pdf",
+};
+
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 const UPLOAD_DIR = path.join(process.cwd(), "uploads", "kyc");
@@ -32,18 +38,19 @@ export async function POST(req: NextRequest) {
       return badRequest("File and document type are required");
     }
 
-    const validTypes = [
+    const validDocTypes = [
       "national_id",
       "passport",
       "drivers_license",
       "utility_bill",
       "selfie",
     ];
-    if (!validTypes.includes(docType)) {
+    if (!validDocTypes.includes(docType)) {
       return badRequest("Invalid document type");
     }
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const safeExt = ALLOWED_TYPES[file.type];
+    if (!safeExt) {
       return badRequest("Invalid file type. Allowed: JPEG, PNG, WebP, PDF");
     }
 
@@ -66,9 +73,14 @@ export async function POST(req: NextRequest) {
 
     await mkdir(UPLOAD_DIR, { recursive: true });
 
-    const ext = file.name.split(".").pop() || "bin";
-    const fileName = `${user._id}_${docType}_${Date.now()}.${ext}`;
+    // Use a safe, deterministic filename — no user-supplied extension
+    const fileName = `${user._id}_${docType}_${Date.now()}.${safeExt}`;
     const filePath = path.join(UPLOAD_DIR, fileName);
+
+    // Ensure the resolved path stays within UPLOAD_DIR (path traversal guard)
+    if (!filePath.startsWith(UPLOAD_DIR)) {
+      return badRequest("Invalid file path");
+    }
 
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filePath, buffer);

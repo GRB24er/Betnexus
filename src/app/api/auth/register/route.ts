@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { connectDB } from "@/lib/mongodb";
 import { User } from "@/models/User";
+import { Referral } from "@/models/Referral";
 import {
   badRequest,
   serverError,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/auth";
 import { rateLimit, AUTH_RATE_LIMIT } from "@/lib/rateLimit";
 import { logAudit } from "@/lib/audit";
+import { sendWelcomeEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -35,12 +37,24 @@ export async function POST(req: NextRequest) {
       return badRequest("Invalid registration data", parsed.error.issues);
     }
 
-    const { email, password, firstName, lastName, phone, dateOfBirth, country, referralCode } =
-      parsed.data;
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      phone,
+      dateOfBirth,
+      country,
+      referralCode,
+    } = parsed.data;
 
     if (dateOfBirth) {
       const dob = new Date(dateOfBirth);
-      const age = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+      if (isNaN(dob.getTime())) {
+        return badRequest("Invalid date of birth");
+      }
+      const age =
+        (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
       if (age < 18) {
         return badRequest("You must be 18 or older to register");
       }
@@ -53,25 +67,51 @@ export async function POST(req: NextRequest) {
       return badRequest("An account with this email already exists");
     }
 
-    let referredBy: string | undefined;
+    let referrerId: string | undefined;
     if (referralCode) {
-      const referrer = await User.findOne({ referralCode: referralCode.toUpperCase() });
+      const referrer = await User.findOne({
+        referralCode: referralCode.toUpperCase(),
+      });
       if (referrer) {
-        referredBy = referrer._id.toString();
+        referrerId = referrer._id.toString();
       }
     }
 
-    const user = await User.create({
-      email: email.toLowerCase(),
-      password,
-      firstName,
-      lastName,
-      phone,
-      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-      country: country || "Ghana",
-      lastLoginAt: new Date(),
-      referredBy,
-    });
+    let user;
+    try {
+      user = await User.create({
+        email: email.toLowerCase(),
+        password,
+        firstName,
+        lastName,
+        phone,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+        country: country || "Ghana",
+        lastLoginAt: new Date(),
+        referredBy: referrerId,
+      });
+    } catch (err: unknown) {
+      // Handle MongoDB duplicate key error (race condition on email uniqueness)
+      if (
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: number }).code === 11000
+      ) {
+        return badRequest("An account with this email already exists");
+      }
+      throw err;
+    }
+
+    // Create referral record if applicable
+    if (referrerId) {
+      await Referral.create({
+        referrerId,
+        referredId: user._id,
+        referralCode: referralCode!.toUpperCase(),
+        status: "pending",
+      }).catch(() => {}); // Non-fatal if referral creation fails
+    }
 
     const token = signToken({
       sub: user._id.toString(),
@@ -88,6 +128,11 @@ export async function POST(req: NextRequest) {
       details: { referralCode: referralCode || undefined },
       req,
     });
+
+    // Fire-and-forget welcome email
+    sendWelcomeEmail(user.email, user.firstName, user.referralCode).catch(
+      () => {}
+    );
 
     return NextResponse.json({
       user: user.toPublicJSON(),

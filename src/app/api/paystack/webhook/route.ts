@@ -4,6 +4,8 @@ import { connectDB } from "@/lib/mongodb";
 import { Transaction } from "@/models/Transaction";
 import { User } from "@/models/User";
 import { fromMinorUnit } from "@/lib/paystack";
+import { logAudit } from "@/lib/audit";
+import { sendDepositConfirmation } from "@/lib/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +27,11 @@ export async function POST(req: NextRequest) {
     .update(raw)
     .digest("hex");
 
-  if (!signature || computed !== signature) {
+  // Constant-time comparison to prevent timing attacks
+  if (
+    !signature ||
+    !crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(signature))
+  ) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -49,62 +55,121 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     if (event.event === "charge.success") {
-      const tx = await Transaction.findOne({ reference: event.data.reference });
-      if (!tx || tx.status === "success") {
-        return NextResponse.json({ received: true });
-      }
-
-      const user = await User.findById(tx.userId);
-      if (!user) {
-        return NextResponse.json({ received: true });
-      }
-
       const amount = fromMinorUnit(event.data.amount);
-      const before = user.balance;
-      user.balance = before + amount;
-      user.totalDeposited += amount;
-      await user.save();
 
-      tx.status = "success";
-      tx.balanceBefore = before;
-      tx.balanceAfter = user.balance;
-      tx.paystackReference = event.data.reference;
-      tx.metadata = { ...tx.metadata, webhook: event };
-      await tx.save();
+      // Atomic: only process if still pending/processing (prevents double-credit)
+      const tx = await Transaction.findOneAndUpdate(
+        {
+          reference: event.data.reference,
+          status: { $in: ["pending", "processing"] },
+        },
+        {
+          $set: {
+            status: "success",
+            paystackReference: event.data.reference,
+            "metadata.webhook": event,
+          },
+        },
+        { new: true }
+      );
+
+      if (tx) {
+        // Atomically credit the user
+        const user = await User.findByIdAndUpdate(
+          tx.userId,
+          { $inc: { balance: amount, totalDeposited: amount } },
+          { new: true }
+        );
+
+        if (user) {
+          // Back-fill balance snapshot
+          await Transaction.updateOne(
+            { _id: tx._id },
+            {
+              $set: {
+                balanceBefore: user.balance - amount,
+                balanceAfter: user.balance,
+              },
+            }
+          );
+
+          void logAudit({
+            userId: tx.userId,
+            action: "deposit.success",
+            resource: "transaction",
+            resourceId: tx.reference,
+            details: { amount, source: "webhook" },
+            req,
+          });
+
+          sendDepositConfirmation(
+            user.email,
+            user.firstName,
+            amount,
+            user.currency,
+            tx.method,
+            tx.reference,
+            user.balance
+          ).catch(() => {});
+        }
+      }
     }
 
     if (event.event === "transfer.success") {
-      const tx = await Transaction.findOne({
-        reference: event.data.reference,
-        type: "withdrawal",
-      });
-      if (tx && tx.status !== "success") {
-        tx.status = "success";
-        await tx.save();
-      }
+      await Transaction.findOneAndUpdate(
+        {
+          reference: event.data.reference,
+          type: "withdrawal",
+          status: { $ne: "success" },
+        },
+        { $set: { status: "success" } }
+      );
     }
 
-    if (event.event === "transfer.failed" || event.event === "transfer.reversed") {
-      const tx = await Transaction.findOne({
-        reference: event.data.reference,
-        type: "withdrawal",
-      });
-      if (tx && tx.status !== "success") {
-        const user = await User.findById(tx.userId);
-        if (user) {
-          user.balance += tx.amount;
-          user.totalWithdrawn = Math.max(0, user.totalWithdrawn - tx.amount);
-          await user.save();
-        }
-        tx.status = "failed";
-        tx.failureReason = event.event;
-        await tx.save();
+    if (
+      event.event === "transfer.failed" ||
+      event.event === "transfer.reversed"
+    ) {
+      // Atomic: only reverse if not already succeeded
+      const tx = await Transaction.findOneAndUpdate(
+        {
+          reference: event.data.reference,
+          type: "withdrawal",
+          status: { $nin: ["success", "failed"] },
+        },
+        {
+          $set: {
+            status: "failed",
+            failureReason: event.event,
+          },
+        },
+        { new: true }
+      );
+
+      if (tx) {
+        // Refund the user atomically
+        await User.findByIdAndUpdate(tx.userId, {
+          $inc: {
+            balance: tx.amount,
+            totalWithdrawn: -tx.amount,
+          },
+        });
+
+        void logAudit({
+          userId: tx.userId,
+          action: "withdraw.reject",
+          resource: "transaction",
+          resourceId: tx.reference,
+          details: { reason: event.event },
+          req,
+        });
       }
     }
 
     return NextResponse.json({ received: true });
   } catch (err) {
     console.error("[paystack/webhook]", err);
-    return NextResponse.json({ error: "Webhook handler error" }, { status: 500 });
+    // Always return 200 to Paystack to prevent retries for non-transient errors
+    return NextResponse.json({ received: true });
   }
 }

@@ -11,8 +11,9 @@ export async function GET(req: NextRequest) {
   if (!user) return unauthorized();
 
   const status = req.nextUrl.searchParams.get("status");
+  const page = Math.max(1, Number(req.nextUrl.searchParams.get("page") || 1));
   const limit = Math.min(
-    Number(req.nextUrl.searchParams.get("limit") || 50),
+    Number(req.nextUrl.searchParams.get("limit") || 20),
     100
   );
 
@@ -21,7 +22,19 @@ export async function GET(req: NextRequest) {
   const query: Record<string, unknown> = { userId: user._id };
   if (status) query.status = status;
 
-  const bets = await Bet.find(query).sort({ createdAt: -1 }).limit(limit).lean();
+  const [bets, total] = await Promise.all([
+    Bet.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    Bet.countDocuments(query),
+  ]);
 
-  return NextResponse.json({ bets });
+  return NextResponse.json({
+    bets,
+    total,
+    page,
+    pages: Math.ceil(total / limit),
+  });
 }

@@ -1,7 +1,5 @@
 import Redis from "ioredis";
 
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
-
 type RedisCache = {
   client: Redis | null;
 };
@@ -18,14 +16,30 @@ if (!global._redisCache) {
 
 export function getRedis(): Redis {
   if (cached.client) return cached.client;
-  cached.client = new Redis(REDIS_URL, {
+
+  const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+
+  const client = new Redis(REDIS_URL, {
     maxRetriesPerRequest: 3,
     lazyConnect: true,
+    enableOfflineQueue: false,
     retryStrategy(times) {
+      if (times > 5) return null; // Stop retrying after 5 attempts
       return Math.min(times * 200, 5000);
     },
   });
-  cached.client.connect().catch(() => {});
+
+  client.on("error", () => {
+    // Silently handle connection errors; operations will fall through gracefully
+  });
+
+  client.on("close", () => {
+    // Reset cached client on close so next call creates a fresh connection
+    cached.client = null;
+  });
+
+  client.connect().catch(() => {});
+  cached.client = client;
   return cached.client;
 }
 
@@ -45,13 +59,17 @@ export async function cacheSet(
 ): Promise<void> {
   try {
     await getRedis().set(key, JSON.stringify(value), "EX", ttlSeconds);
-  } catch {}
+  } catch {
+    // Redis unavailable — fail silently, app continues without caching
+  }
 }
 
 export async function cacheDel(key: string): Promise<void> {
   try {
     await getRedis().del(key);
-  } catch {}
+  } catch {
+    // Redis unavailable — fail silently
+  }
 }
 
 export async function cacheIncr(
@@ -59,7 +77,11 @@ export async function cacheIncr(
   ttlSeconds = 60
 ): Promise<number> {
   const redis = getRedis();
-  const val = await redis.incr(key);
-  if (val === 1) await redis.expire(key, ttlSeconds);
-  return val;
+  // Use pipeline to make INCR + EXPIRE atomic
+  const pipeline = redis.pipeline();
+  pipeline.incr(key);
+  pipeline.expire(key, ttlSeconds, "NX"); // Only set TTL if not already set
+  const results = await pipeline.exec();
+  const count = results?.[0]?.[1];
+  return typeof count === "number" ? count : 1;
 }

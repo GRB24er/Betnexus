@@ -89,6 +89,8 @@ const BetSchema = new Schema<IBet>(
 );
 
 BetSchema.index({ userId: 1, createdAt: -1 });
+BetSchema.index({ status: 1, createdAt: -1 });
+BetSchema.index({ userId: 1, status: 1 });
 
 export const Bet: Model<IBet> =
   (mongoose.models.Bet as Model<IBet>) ||

@@ -12,7 +12,10 @@ export async function GET(req: NextRequest) {
   if (auth.error) return auth.error;
 
   const page = Math.max(1, Number(req.nextUrl.searchParams.get("page") || 1));
-  const limit = Math.min(100, Number(req.nextUrl.searchParams.get("limit") || 20));
+  const limit = Math.min(
+    100,
+    Number(req.nextUrl.searchParams.get("limit") || 20)
+  );
   const search = req.nextUrl.searchParams.get("search");
   const status = req.nextUrl.searchParams.get("status");
   const kycStatus = req.nextUrl.searchParams.get("kycStatus");
@@ -33,6 +36,7 @@ export async function GET(req: NextRequest) {
 
   const [users, total] = await Promise.all([
     User.find(query)
+      .select("-password -__v")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -54,7 +58,10 @@ export async function PATCH(req: NextRequest) {
 
   const { userId, action, value } = await req.json();
   if (!userId || !action) {
-    return NextResponse.json({ error: "userId and action required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "userId and action required" },
+      { status: 400 }
+    );
   }
 
   await connectDB();
@@ -75,7 +82,10 @@ export async function PATCH(req: NextRequest) {
       break;
     case "adjust_balance":
       if (typeof value !== "number") {
-        return NextResponse.json({ error: "Value must be a number" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Value must be a number" },
+          { status: 400 }
+        );
       }
       user.balance = Math.max(0, user.balance + value);
       break;
@@ -87,7 +97,8 @@ export async function PATCH(req: NextRequest) {
 
   await logAudit({
     userId: user._id,
-    action: action === "adjust_balance" ? "admin.balance_adjust" : "user.update",
+    action:
+      action === "adjust_balance" ? "admin.balance_adjust" : "user.update",
     resource: "User",
     resourceId: user._id.toString(),
     details: { action, value },

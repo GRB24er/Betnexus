@@ -52,23 +52,33 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    const fresh = await User.findById(user._id);
-    if (!fresh) return unauthorized();
+    // Atomic balance deduction: only deduct if balance is sufficient
+    // This prevents race conditions when multiple bets are placed concurrently
+    const fresh = await User.findOneAndUpdate(
+      { _id: user._id, balance: { $gte: stake }, status: "active" },
+      { $inc: { balance: -stake, totalWagered: stake } },
+      { new: true }
+    );
 
-    if (fresh.balance < stake) {
+    if (!fresh) {
+      // Either user not found, insufficient balance, or account not active
+      const check = await User.findById(user._id);
+      if (!check) return unauthorized();
+      if (check.status !== "active") {
+        return NextResponse.json(
+          { error: `Account is ${check.status}` },
+          { status: 403 }
+        );
+      }
       return NextResponse.json(
         { error: "Insufficient balance" },
         { status: 400 }
       );
     }
 
+    const balanceBefore = fresh.balance + stake; // restore pre-deduction value
     const totalOdds = selections.reduce((acc, s) => acc * s.odds, 1);
     const potentialWin = Math.min(stake * totalOdds, MAX_PAYOUT);
-
-    const before = fresh.balance;
-    fresh.balance = before - stake;
-    fresh.totalWagered += stake;
-    await fresh.save();
 
     const reference = generateReference("BET");
     const bet = await Bet.create({
@@ -95,7 +105,7 @@ export async function POST(req: NextRequest) {
       currency: fresh.currency,
       method: "internal",
       reference: `TXN-${reference}`,
-      balanceBefore: before,
+      balanceBefore,
       balanceAfter: fresh.balance,
       metadata: { betId: bet._id.toString(), betRef: reference },
     });

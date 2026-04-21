@@ -93,6 +93,8 @@ const TransactionSchema = new Schema<ITransaction>(
 );
 
 TransactionSchema.index({ userId: 1, createdAt: -1 });
+TransactionSchema.index({ type: 1, status: 1, createdAt: -1 });
+TransactionSchema.index({ status: 1, createdAt: -1 });
 
 export const Transaction: Model<ITransaction> =
   (mongoose.models.Transaction as Model<ITransaction>) ||

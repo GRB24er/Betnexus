@@ -28,7 +28,10 @@ export async function POST(req: NextRequest) {
 
     if (!promo) return badRequest("Invalid or expired promo code");
 
-    if (promo.maxRedemptions > 0 && promo.currentRedemptions >= promo.maxRedemptions) {
+    if (
+      promo.maxRedemptions > 0 &&
+      promo.currentRedemptions >= promo.maxRedemptions
+    ) {
       return badRequest("Promotion fully redeemed");
     }
 
@@ -56,12 +59,31 @@ export async function POST(req: NextRequest) {
     }
     bonusAmount = Math.round(bonusAmount * 100) / 100;
 
-    const fresh = await User.findById(user._id);
-    if (!fresh) return unauthorized();
+    // Atomic increment of redemption count — prevents over-redemption race condition
+    const updatedPromo = await Promotion.findOneAndUpdate(
+      {
+        _id: promo._id,
+        status: "active",
+        $or: [
+          { maxRedemptions: 0 },
+          { $expr: { $lt: ["$currentRedemptions", "$maxRedemptions"] } },
+        ],
+      },
+      { $inc: { currentRedemptions: 1 } },
+      { new: true }
+    );
 
-    const before = fresh.bonusBalance;
-    fresh.bonusBalance += bonusAmount;
-    await fresh.save();
+    if (!updatedPromo) {
+      return badRequest("Promotion fully redeemed");
+    }
+
+    // Credit bonus balance atomically
+    const fresh = await User.findByIdAndUpdate(
+      user._id,
+      { $inc: { bonusBalance: bonusAmount } },
+      { new: true }
+    );
+    if (!fresh) return unauthorized();
 
     await PromoRedemption.create({
       userId: fresh._id,
@@ -74,9 +96,6 @@ export async function POST(req: NextRequest) {
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
 
-    promo.currentRedemptions += 1;
-    await promo.save();
-
     await Transaction.create({
       userId: fresh._id,
       type: "bonus" as const,
@@ -85,12 +104,12 @@ export async function POST(req: NextRequest) {
       currency: fresh.currency,
       method: "internal" as const,
       reference: generateReference("BNS"),
-      balanceBefore: before,
+      balanceBefore: fresh.bonusBalance - bonusAmount,
       balanceAfter: fresh.bonusBalance,
       metadata: { promoCode: promo.code, promoType: promo.type },
     });
 
-    await logAudit({
+    void logAudit({
       userId: fresh._id,
       action: "promo.redeem",
       resource: "Promotion",

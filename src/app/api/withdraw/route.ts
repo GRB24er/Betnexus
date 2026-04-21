@@ -7,6 +7,7 @@ import { badRequest, getCurrentUser, serverError, unauthorized } from "@/lib/aut
 import { generateReference } from "@/lib/reference";
 import { rateLimit, PAYMENT_RATE_LIMIT } from "@/lib/rateLimit";
 import { logAudit } from "@/lib/audit";
+import { sendWithdrawalRequest } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -55,22 +56,36 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    const fresh = await User.findById(user._id);
-    if (!fresh) return unauthorized();
+    // Atomic balance deduction: only deduct if sufficient funds exist
+    const fresh = await User.findOneAndUpdate(
+      {
+        _id: user._id,
+        balance: { $gte: amount },
+        kycVerified: true,
+        status: "active",
+      },
+      { $inc: { balance: -amount, totalWithdrawn: amount } },
+      { new: true }
+    );
 
-    if (fresh.balance < amount) {
+    if (!fresh) {
+      const check = await User.findById(user._id);
+      if (!check) return unauthorized();
+      if (!check.kycVerified) {
+        return NextResponse.json(
+          { error: "KYC verification is required before withdrawals" },
+          { status: 403 }
+        );
+      }
       return NextResponse.json(
         { error: "Insufficient balance" },
         { status: 400 }
       );
     }
 
-    const before = fresh.balance;
-    fresh.balance = before - amount;
-    fresh.totalWithdrawn += amount;
-    await fresh.save();
-
+    const balanceBefore = fresh.balance + amount;
     const reference = generateReference("WTH");
+
     const tx = await Transaction.create({
       userId: fresh._id,
       type: "withdrawal",
@@ -82,7 +97,7 @@ export async function POST(req: NextRequest) {
       accountNumber,
       accountName,
       cryptoAddress,
-      balanceBefore: before,
+      balanceBefore,
       balanceAfter: fresh.balance,
       metadata: { requestedAt: new Date().toISOString() },
     });
@@ -95,6 +110,15 @@ export async function POST(req: NextRequest) {
       details: { amount, method },
       req,
     });
+
+    sendWithdrawalRequest(
+      fresh.email,
+      fresh.firstName,
+      amount,
+      fresh.currency,
+      method,
+      reference
+    ).catch(() => {});
 
     return NextResponse.json({
       reference: tx.reference,

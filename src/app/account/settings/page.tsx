@@ -13,8 +13,11 @@ import {
   Moon,
   ChevronRight,
 } from "lucide-react";
+import { useSession } from "@/store/session";
 
 export default function SettingsPage() {
+  const { user } = useSession();
+
   const [notifications, setNotifications] = useState({
     betResults: true,
     promotions: true,
@@ -30,7 +33,10 @@ export default function SettingsPage() {
       <div className="bg-[#161925] border-b border-[#2a3050]">
         <div className="px-4 lg:px-6 py-4">
           <div className="flex items-center gap-3">
-            <Link href="/account" className="p-2 text-[#5a6485] hover:text-white transition-colors">
+            <Link
+              href="/account"
+              className="p-2 text-[#5a6485] hover:text-white transition-colors"
+            >
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <h1 className="text-lg font-bold text-white">Account Settings</h1>
@@ -45,11 +51,28 @@ export default function SettingsPage() {
             <User className="w-4 h-4 text-[#8b5cf6]" /> Personal Information
           </h2>
           <div className="bg-[#1c2033] border border-[#2a3050] rounded-xl divide-y divide-[#2a3050]">
-            <SettingRow label="Full Name" value="John Doe" />
-            <SettingRow label="Email" value="john.doe@email.com" icon={<Mail className="w-3.5 h-3.5" />} />
-            <SettingRow label="Phone" value="+233 24 XXX XXXX" icon={<Phone className="w-3.5 h-3.5" />} />
-            <SettingRow label="Date of Birth" value="Jan 15, 1995" />
-            <SettingRow label="Country" value="Ghana" icon={<Globe className="w-3.5 h-3.5" />} />
+            <SettingRow
+              label="Full Name"
+              value={
+                user ? `${user.firstName} ${user.lastName}` : "—"
+              }
+            />
+            <SettingRow
+              label="Email"
+              value={user?.email ?? "—"}
+              icon={<Mail className="w-3.5 h-3.5" />}
+            />
+            <SettingRow
+              label="Phone"
+              value="—"
+              icon={<Phone className="w-3.5 h-3.5" />}
+            />
+            <SettingRow label="Date of Birth" value="—" />
+            <SettingRow
+              label="Country"
+              value="Ghana"
+              icon={<Globe className="w-3.5 h-3.5" />}
+            />
           </div>
         </section>
 
@@ -62,23 +85,39 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between px-4 py-3">
               <div>
                 <p className="text-sm text-white">Change Password</p>
-                <p className="text-[11px] text-[#5a6485]">Last changed 30 days ago</p>
+                <p className="text-[11px] text-[#5a6485]">
+                  Update your account password
+                </p>
               </div>
               <ChevronRight className="w-4 h-4 text-[#5a6485]" />
             </div>
             <div className="flex items-center justify-between px-4 py-3">
               <div>
                 <p className="text-sm text-white">Two-Factor Authentication</p>
-                <p className="text-[11px] text-[#5a6485]">Add extra security to your account</p>
+                <p className="text-[11px] text-[#5a6485]">
+                  Add extra security to your account
+                </p>
               </div>
-              <span className="text-[10px] font-bold bg-[#ff4757]/20 text-[#ff4757] px-2 py-0.5 rounded">OFF</span>
+              <span className="text-[10px] font-bold bg-[#ff4757]/20 text-[#ff4757] px-2 py-0.5 rounded">
+                OFF
+              </span>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
               <div>
                 <p className="text-sm text-white">KYC Verification</p>
-                <p className="text-[11px] text-[#5a6485]">Verify your identity for higher limits</p>
+                <p className="text-[11px] text-[#5a6485]">
+                  Verify your identity for higher limits
+                </p>
               </div>
-              <span className="text-[10px] font-bold bg-[#00d46e]/20 text-[#00d46e] px-2 py-0.5 rounded">VERIFIED</span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                  user?.kycVerified
+                    ? "bg-[#00d46e]/20 text-[#00d46e]"
+                    : "bg-[#ff4757]/20 text-[#ff4757]"
+                }`}
+              >
+                {user?.kycVerified ? "VERIFIED" : "UNVERIFIED"}
+              </span>
             </div>
           </div>
         </section>
@@ -90,19 +129,28 @@ export default function SettingsPage() {
           </h2>
           <div className="bg-[#1c2033] border border-[#2a3050] rounded-xl divide-y divide-[#2a3050]">
             {Object.entries(notifications).map(([key, val]) => (
-              <div key={key} className="flex items-center justify-between px-4 py-3">
+              <div
+                key={key}
+                className="flex items-center justify-between px-4 py-3"
+              >
                 <span className="text-sm text-white capitalize">
                   {key.replace(/([A-Z])/g, " $1").trim()}
                 </span>
                 <button
-                  onClick={() => setNotifications({ ...notifications, [key]: !val })}
+                  onClick={() =>
+                    setNotifications({ ...notifications, [key]: !val })
+                  }
+                  aria-label={`Toggle ${key}`}
+                  aria-pressed={val}
                   className={`w-12 h-7 rounded-full relative transition-colors shrink-0 ${
                     val ? "bg-[#00d46e]" : "bg-[#2a3050]"
                   }`}
                 >
-                  <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform ${
-                    val ? "right-1" : "left-1"
-                  }`} />
+                  <div
+                    className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform ${
+                      val ? "right-1" : "left-1"
+                    }`}
+                  />
                 </button>
               </div>
             ))}
@@ -159,7 +207,15 @@ export default function SettingsPage() {
   );
 }
 
-function SettingRow({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
+function SettingRow({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+}) {
   return (
     <div className="flex items-center justify-between px-4 py-3">
       <div className="flex items-center gap-2">

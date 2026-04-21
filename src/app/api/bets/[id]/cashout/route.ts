@@ -5,11 +5,12 @@ import { Transaction } from "@/models/Transaction";
 import { User } from "@/models/User";
 import { getCurrentUser, serverError, unauthorized } from "@/lib/auth";
 import { generateReference } from "@/lib/reference";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -19,34 +20,47 @@ export async function POST(
     const { id } = await ctx.params;
 
     await connectDB();
-    const bet = await Bet.findOne({ _id: id, userId: user._id });
+
+    // Simplified cashout: 70% of potential win
+    // Atomic: only transition if still pending — prevents double cashout
+    const bet = await Bet.findOneAndUpdate(
+      { _id: id, userId: user._id, status: "pending" },
+      {
+        $set: {
+          status: "cashed_out",
+          cashedOutAt: new Date(),
+          settledAt: new Date(),
+        },
+      },
+      { new: true }
+    );
+
     if (!bet) {
-      return NextResponse.json({ error: "Bet not found" }, { status: 404 });
-    }
-    if (bet.status !== "pending") {
+      const existing = await Bet.findOne({ _id: id, userId: user._id });
+      if (!existing) {
+        return NextResponse.json({ error: "Bet not found" }, { status: 404 });
+      }
       return NextResponse.json(
-        { error: `Cannot cash out ${bet.status} bet` },
+        { error: `Cannot cash out a ${existing.status} bet` },
         { status: 400 }
       );
     }
 
-    // Simplified cashout: 70% of potential win
     const cashoutAmount = Math.round(bet.potentialWin * 0.7 * 100) / 100;
 
-    const fresh = await User.findById(user._id);
-    if (!fresh) return unauthorized();
-
-    const before = fresh.balance;
-    fresh.balance = before + cashoutAmount;
-    fresh.totalWon += cashoutAmount;
-    await fresh.save();
-
-    bet.status = "cashed_out";
-    bet.cashedOutAt = new Date();
+    // Persist cashout amount after atomic lock
     bet.cashedOutAmount = cashoutAmount;
     bet.payout = cashoutAmount;
-    bet.settledAt = new Date();
     await bet.save();
+
+    // Credit user atomically
+    const fresh = await User.findByIdAndUpdate(
+      user._id,
+      { $inc: { balance: cashoutAmount, totalWon: cashoutAmount } },
+      { new: true }
+    );
+
+    if (!fresh) return unauthorized();
 
     await Transaction.create({
       userId: fresh._id,
@@ -56,9 +70,18 @@ export async function POST(
       currency: fresh.currency,
       method: "internal",
       reference: generateReference("CSH"),
-      balanceBefore: before,
+      balanceBefore: fresh.balance - cashoutAmount,
       balanceAfter: fresh.balance,
       metadata: { betId: bet._id.toString(), reason: "cashout" },
+    });
+
+    void logAudit({
+      userId: user._id,
+      action: "bet.cashout",
+      resource: "bet",
+      resourceId: bet._id.toString(),
+      details: { cashoutAmount, potentialWin: bet.potentialWin },
+      req,
     });
 
     return NextResponse.json({

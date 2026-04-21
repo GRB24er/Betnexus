@@ -88,6 +88,11 @@ const UserSchema = new Schema<IUser, UserModel, IUserMethods>(
   { timestamps: true }
 );
 
+// Compound indexes for common admin queries
+UserSchema.index({ status: 1, createdAt: -1 });
+UserSchema.index({ kycStatus: 1, createdAt: -1 });
+UserSchema.index({ role: 1 });
+
 UserSchema.pre("save", async function () {
   if (this.isNew && !this.referralCode) {
     this.referralCode = `BN${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
