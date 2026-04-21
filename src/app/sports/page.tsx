@@ -1,21 +1,32 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, ChevronDown, SlidersHorizontal, RefreshCw, Loader2 } from "lucide-react";
+import { Search, ChevronDown, SlidersHorizontal, RefreshCw, Loader2, Clock, Zap } from "lucide-react";
 import MatchCard from "@/components/MatchCard";
 import { Match, sportsCategories } from "@/lib/data";
 
-const timeFilters = ["All", "Today", "Tomorrow", "This Week"];
+const timeFilters = [
+  { label: "All", value: "all" },
+  { label: "Today", value: "today" },
+  { label: "Tomorrow", value: "tomorrow" },
+  { label: "This Week", value: "week" },
+];
 
 interface MatchesResponse {
   live: Match[];
   upcoming: Match[];
   total: number;
+  storeStatus?: {
+    matchCount: number;
+    lastRefresh: string;
+    isRefreshing: boolean;
+    initialized: boolean;
+  };
 }
 
 export default function SportsPage() {
   const [selectedSport, setSelectedSport] = useState("all");
-  const [selectedTime, setSelectedTime] = useState("All");
+  const [selectedTime, setSelectedTime] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [liveMatches, setLiveMatches] = useState<Match[]>([]);
@@ -23,18 +34,20 @@ export default function SportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [storeReady, setStoreReady] = useState(false);
 
-  const fetchMatches = useCallback(async (sport: string) => {
-    setLoading(true);
+  const fetchMatches = useCallback(async (sport: string, time: string, showLoader = true) => {
+    if (showLoader) setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ sport, type: "all" });
+      const params = new URLSearchParams({ sport, time });
       const res = await fetch(`/api/matches?${params}`);
       if (!res.ok) throw new Error(`Failed to fetch matches (${res.status})`);
       const data: MatchesResponse = await res.json();
       setLiveMatches(data.live);
       setUpcomingMatches(data.upcoming);
       setLastUpdated(new Date());
+      if (data.storeStatus?.initialized) setStoreReady(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load matches");
     } finally {
@@ -42,11 +55,16 @@ export default function SportsPage() {
     }
   }, []);
 
+  // Fetch on sport or time change
   useEffect(() => {
-    fetchMatches(selectedSport);
-    const interval = setInterval(() => fetchMatches(selectedSport), 2 * 60 * 1000);
+    fetchMatches(selectedSport, selectedTime);
+  }, [selectedSport, selectedTime, fetchMatches]);
+
+  // Auto-refresh every 2 minutes (silent, no loader)
+  useEffect(() => {
+    const interval = setInterval(() => fetchMatches(selectedSport, selectedTime, false), 2 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [selectedSport, fetchMatches]);
+  }, [selectedSport, selectedTime, fetchMatches]);
 
   const filterBySearch = (matches: Match[]) => {
     if (!searchQuery.trim()) return matches;
@@ -60,9 +78,11 @@ export default function SportsPage() {
   const filteredUpcoming = filterBySearch(upcomingMatches);
   const totalCount = filteredLive.length + filteredUpcoming.length;
 
+  // Build sport counts from ALL matches (not filtered by time)
+  const allMatches = [...liveMatches, ...upcomingMatches];
   const sportCategoryList = sportsCategories.map((cat) => ({
     ...cat,
-    count: [...liveMatches, ...upcomingMatches].filter((m) => m.sport === cat.id).length,
+    count: allMatches.filter((m) => m.sport === cat.id).length,
   }));
 
   return (
@@ -79,6 +99,7 @@ export default function SportsPage() {
                   : "bg-[#1c2033] text-[#8b95b8] border border-[#2a3050] hover:border-[#3b82f6]/30"
               }`}
             >
+              <Zap className="w-3.5 h-3.5" />
               All Sports
             </button>
             {sportCategoryList.map((sport) => (
@@ -94,7 +115,9 @@ export default function SportsPage() {
                 <span>{sport.icon}</span>
                 <span>{sport.name}</span>
                 {sport.count > 0 && (
-                  <span className="text-[10px] text-[#5a6485]">{sport.count}</span>
+                  <span className="text-[10px] bg-[#2a3050] text-[#8b95b8] px-1.5 py-0.5 rounded-full">
+                    {sport.count}
+                  </span>
                 )}
               </button>
             ))}
@@ -103,7 +126,7 @@ export default function SportsPage() {
       </div>
 
       <div className="px-4 lg:px-6 py-6">
-        {/* Search & Filters */}
+        {/* Search & Time Filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5a6485]" />
@@ -118,15 +141,16 @@ export default function SportsPage() {
           <div className="flex gap-2">
             {timeFilters.map((t) => (
               <button
-                key={t}
-                onClick={() => setSelectedTime(t)}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  selectedTime === t
+                key={t.value}
+                onClick={() => setSelectedTime(t.value)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  selectedTime === t.value
                     ? "bg-[#00d46e]/10 text-[#00d46e] border border-[#00d46e]/30"
                     : "bg-[#1c2033] text-[#8b95b8] border border-[#2a3050] hover:text-white"
                 }`}
               >
-                {t}
+                {t.value === "today" && <Clock className="w-3 h-3" />}
+                {t.label}
               </button>
             ))}
             <button
@@ -143,35 +167,27 @@ export default function SportsPage() {
         {showFilters && (
           <div className="bg-[#1c2033] border border-[#2a3050] rounded-xl p-4 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div>
-              <label className="text-[11px] text-[#5a6485] font-medium mb-1 block">
-                League
-              </label>
+              <label className="text-[11px] text-[#5a6485] font-medium mb-1 block">League</label>
               <button className="w-full flex items-center justify-between bg-[#0f1118] border border-[#2a3050] rounded-lg px-3 py-2 text-sm text-[#8b95b8]">
                 All Leagues <ChevronDown className="w-3.5 h-3.5" />
               </button>
             </div>
             <div>
-              <label className="text-[11px] text-[#5a6485] font-medium mb-1 block">
-                Market
-              </label>
+              <label className="text-[11px] text-[#5a6485] font-medium mb-1 block">Market</label>
               <button className="w-full flex items-center justify-between bg-[#0f1118] border border-[#2a3050] rounded-lg px-3 py-2 text-sm text-[#8b95b8]">
                 Match Result <ChevronDown className="w-3.5 h-3.5" />
               </button>
             </div>
             <div>
-              <label className="text-[11px] text-[#5a6485] font-medium mb-1 block">
-                Odds Range
-              </label>
+              <label className="text-[11px] text-[#5a6485] font-medium mb-1 block">Odds Range</label>
               <button className="w-full flex items-center justify-between bg-[#0f1118] border border-[#2a3050] rounded-lg px-3 py-2 text-sm text-[#8b95b8]">
                 Any Odds <ChevronDown className="w-3.5 h-3.5" />
               </button>
             </div>
             <div>
-              <label className="text-[11px] text-[#5a6485] font-medium mb-1 block">
-                Sort By
-              </label>
+              <label className="text-[11px] text-[#5a6485] font-medium mb-1 block">Sort By</label>
               <button className="w-full flex items-center justify-between bg-[#0f1118] border border-[#2a3050] rounded-lg px-3 py-2 text-sm text-[#8b95b8]">
-                Popularity <ChevronDown className="w-3.5 h-3.5" />
+                Kick-off Time <ChevronDown className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -179,22 +195,38 @@ export default function SportsPage() {
 
         {/* Results Header */}
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-[#8b95b8]">
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading real matches...
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-[#8b95b8]">
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  {storeReady ? "Filtering matches..." : "Loading matches (first load takes ~20s)..."}
+                </span>
+              ) : (
+                <>
+                  <span className="font-semibold text-white">{totalCount}</span> matches
+                  {selectedTime !== "all" && (
+                    <span className="ml-1 text-[#00d46e]">
+                      · {timeFilters.find((t) => t.value === selectedTime)?.label}
+                    </span>
+                  )}
+                  {lastUpdated && (
+                    <span className="ml-2 text-[10px] text-[#5a6485]">
+                      · Updated {lastUpdated.toLocaleTimeString()}
+                    </span>
+                  )}
+                </>
+              )}
+            </p>
+            {storeReady && !loading && (
+              <span className="flex items-center gap-1 text-[10px] text-[#00d46e] bg-[#00d46e]/10 px-2 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 bg-[#00d46e] rounded-full" />
+                Live Data
               </span>
-            ) : (
-              <>
-                <span className="font-semibold text-white">{totalCount}</span> matches found
-                {lastUpdated && (
-                  <span className="ml-2 text-[10px] text-[#5a6485]">· Updated {lastUpdated.toLocaleTimeString()}</span>
-                )}
-              </>
             )}
-          </p>
+          </div>
           <button
-            onClick={() => fetchMatches(selectedSport)}
+            onClick={() => fetchMatches(selectedSport, selectedTime)}
             disabled={loading}
             className="flex items-center gap-1.5 text-[11px] text-[#8b95b8] hover:text-[#00d46e] transition-colors disabled:opacity-50"
           >
@@ -207,7 +239,9 @@ export default function SportsPage() {
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 text-sm text-red-400">
             {error} —{" "}
-            <button onClick={() => fetchMatches(selectedSport)} className="underline">Try again</button>
+            <button onClick={() => fetchMatches(selectedSport, selectedTime)} className="underline">
+              Try again
+            </button>
           </div>
         )}
 
@@ -249,25 +283,70 @@ export default function SportsPage() {
           </div>
         )}
 
-        {/* Upcoming Section */}
+        {/* Upcoming Section — Grouped by League */}
         {!loading && filteredUpcoming.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <h3 className="text-sm font-bold text-white">Upcoming</h3>
+              <h3 className="text-sm font-bold text-white">
+                Upcoming
+                <span className="ml-2 text-[10px] font-normal text-[#8b95b8]">
+                  {filteredUpcoming.length} matches
+                </span>
+              </h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-              {filteredUpcoming.map((match) => (
-                <MatchCard key={match.id} match={match} />
-              ))}
-            </div>
+
+            {/* Group by league */}
+            {Object.entries(
+              filteredUpcoming.reduce<Record<string, Match[]>>((acc, m) => {
+                (acc[m.league] = acc[m.league] || []).push(m);
+                return acc;
+              }, {})
+            ).map(([league, matches]) => (
+              <div key={league} className="mb-6">
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <span className="text-xs font-semibold text-[#8b95b8] uppercase tracking-wider">
+                    {league}
+                  </span>
+                  <span className="text-[10px] text-[#5a6485]">({matches.length})</span>
+                  <div className="flex-1 h-px bg-[#2a3050]" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+                  {matches.map((match) => (
+                    <MatchCard key={match.id} match={match} />
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
         {/* Empty State */}
         {!loading && totalCount === 0 && !error && (
           <div className="text-center py-16">
-            <p className="text-[#5a6485] text-sm">No matches available right now.</p>
-            <p className="text-[#5a6485] text-xs mt-1">Check back soon or try a different sport.</p>
+            <div className="text-4xl mb-3">
+              {selectedTime === "today" ? "📅" : selectedTime === "tomorrow" ? "🌅" : "🏟️"}
+            </div>
+            <p className="text-[#8b95b8] text-sm font-medium">
+              {selectedTime === "today"
+                ? "No matches scheduled for today"
+                : selectedTime === "tomorrow"
+                ? "No matches scheduled for tomorrow"
+                : selectedTime === "week"
+                ? "No matches scheduled this week"
+                : "No matches available right now"}
+            </p>
+            <p className="text-[#5a6485] text-xs mt-1">
+              {selectedTime !== "all" ? (
+                <button
+                  onClick={() => setSelectedTime("all")}
+                  className="text-[#00d46e] hover:underline"
+                >
+                  View all upcoming matches instead
+                </button>
+              ) : (
+                "Check back soon or try a different sport."
+              )}
+            </p>
           </div>
         )}
       </div>

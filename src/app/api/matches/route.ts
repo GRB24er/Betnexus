@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  fetchAllMatches,
-  fetchLiveMatches,
-  fetchMatchesBySport,
-  fetchOddsForSport,
-  SUPPORTED_SPORTS,
-} from "@/lib/oddsapi";
+import { getMatches, getStoreStatus } from "@/lib/oddsapi";
 import { serverError } from "@/lib/auth";
-import { Match } from "@/lib/data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,57 +9,38 @@ export const dynamic = "force-dynamic";
  * GET /api/matches
  *
  * Query params:
- *   sport  - sport category name (e.g. "football", "basketball") or "all" (default)
- *            Also accepts a raw Odds API sport key (e.g. "soccer_epl") for direct lookup.
- *   type   - "live" | "upcoming" | "all" (default: "all")
+ *   sport  - "football", "basketball", "tennis", etc. or "all" (default)
+ *   time   - "today", "tomorrow", "week", "all" (default)
+ *   type   - "live", "upcoming", "all" (default) — for backward compat
  *
  * Returns:
- *   { live: Match[], upcoming: Match[], total: number }
+ *   { live: Match[], upcoming: Match[], total: number, storeStatus: {...} }
+ *
+ * Response is INSTANT — data is served from a pre-fetched in-memory store.
  */
 export async function GET(req: NextRequest) {
   try {
     const sport = req.nextUrl.searchParams.get("sport") || "all";
+    const time = req.nextUrl.searchParams.get("time") || "all";
     const type = req.nextUrl.searchParams.get("type") || "all";
 
-    // ── Fetch live matches ──────────────────────────────────────────────────────
-    let liveMatches: Match[] = type === "upcoming" ? [] : await fetchLiveMatches();
+    const result = await getMatches({ sport, time });
 
-    // ── Fetch upcoming matches ──────────────────────────────────────────────────
-    let upcomingMatches: Match[] = [];
-
-    if (type !== "live") {
-      if (sport === "all") {
-        // Fetch all sports sequentially (respects rate limits)
-        upcomingMatches = await fetchAllMatches();
-      } else {
-        // sport can be a category name like "basketball" OR a raw key like "basketball_nba"
-        const isDirectKey = SUPPORTED_SPORTS.some((s) => s.key === sport);
-
-        if (isDirectKey) {
-          // Direct sport key lookup
-          upcomingMatches = await fetchOddsForSport(sport);
-        } else {
-          // Category name — fetch all leagues sequentially
-          upcomingMatches = await fetchMatchesBySport(sport);
-        }
-      }
-    }
-
-    // ── Deduplicate: remove from upcoming anything already in live ──────────────
-    const liveIds = new Set(liveMatches.map((m) => m.id));
-    upcomingMatches = upcomingMatches.filter((m) => !liveIds.has(m.id));
-
-    // ── Filter live matches by sport category if requested ─────────────────────
-    if (sport !== "all") {
-      const categoryName =
-        SUPPORTED_SPORTS.find((s) => s.key === sport)?.sport || sport;
-      liveMatches = liveMatches.filter((m) => m.sport === categoryName);
+    // Backward compat: if type=live, only return live; if type=upcoming, only return upcoming
+    let { live, upcoming, total } = result;
+    if (type === "live") {
+      upcoming = [];
+      total = live.length;
+    } else if (type === "upcoming") {
+      live = [];
+      total = upcoming.length;
     }
 
     return NextResponse.json({
-      live: liveMatches,
-      upcoming: upcomingMatches.slice(0, 100), // cap at 100 per request
-      total: liveMatches.length + upcomingMatches.length,
+      live,
+      upcoming: upcoming.slice(0, 200),
+      total,
+      storeStatus: getStoreStatus(),
     });
   } catch (err) {
     console.error("[api/matches]", err);

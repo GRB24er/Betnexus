@@ -7,6 +7,7 @@ export interface Match {
   homeScore?: number;
   awayScore?: number;
   time: string;
+  commenceTime?: string; // ISO date string for date filtering
   isLive: boolean;
   minute?: number;
   odds: {

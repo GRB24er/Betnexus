@@ -1,13 +1,13 @@
 /**
- * The Odds API Integration Library
+ * The Odds API Integration Library — v3 (Background Pre-fetch)
  * https://the-odds-api.com
  *
- * Handles all communication with The Odds API, normalises the response
- * into the internal Match shape used across Betnexus, and provides a
- * server-side in-memory cache so we don't burn through API credits.
- *
- * Rate-limit aware: requests are throttled to max 1 per second with
- * automatic retry + exponential backoff on 429 responses.
+ * Architecture:
+ *   1. On first request, fetches ALL sports sequentially and stores them in a
+ *      global in-memory match store.
+ *   2. A background interval refreshes the store every 10 minutes.
+ *   3. All page requests read from the store INSTANTLY — zero API wait time.
+ *   4. Requests are throttled to 1 per 1.1s with auto-retry on 429.
  */
 
 import { Match } from "@/lib/data";
@@ -17,408 +17,292 @@ const BASE_URL = "https://api.the-odds-api.com/v4";
 
 // ─── Types from The Odds API ──────────────────────────────────────────────────
 
-export interface OddsAPIOutcome {
-  name: string;
-  price: number;
-}
-
-export interface OddsAPIMarket {
-  key: string;
-  last_update: string;
-  outcomes: OddsAPIOutcome[];
-}
-
-export interface OddsAPIBookmaker {
-  key: string;
-  title: string;
-  last_update: string;
-  markets: OddsAPIMarket[];
-}
-
+export interface OddsAPIOutcome { name: string; price: number; }
+export interface OddsAPIMarket { key: string; last_update: string; outcomes: OddsAPIOutcome[]; }
+export interface OddsAPIBookmaker { key: string; title: string; last_update: string; markets: OddsAPIMarket[]; }
 export interface OddsAPIEvent {
-  id: string;
-  sport_key: string;
-  sport_title: string;
-  commence_time: string;
-  home_team: string;
-  away_team: string;
-  bookmakers: OddsAPIBookmaker[];
+  id: string; sport_key: string; sport_title: string; commence_time: string;
+  home_team: string; away_team: string; bookmakers: OddsAPIBookmaker[];
 }
-
 export interface OddsAPIScore {
-  id: string;
-  sport_key: string;
-  sport_title: string;
-  commence_time: string;
-  completed: boolean;
-  last_update: string | null;
-  home_team: string;
-  away_team: string;
-  scores: { name: string; score: string }[] | null;
+  id: string; sport_key: string; sport_title: string; commence_time: string;
+  completed: boolean; last_update: string | null;
+  home_team: string; away_team: string; scores: { name: string; score: string }[] | null;
 }
 
-// ─── Sports we support (Odds API sport keys) ─────────────────────────────────
+// ─── Supported Sports ────────────────────────────────────────────────────────
 
 export const SUPPORTED_SPORTS: { key: string; name: string; icon: string; sport: string }[] = [
-  { key: "soccer_epl",              name: "Premier League",        icon: "⚽", sport: "football" },
-  { key: "soccer_uefa_champs_league", name: "Champions League",    icon: "⚽", sport: "football" },
-  { key: "soccer_spain_la_liga",    name: "La Liga",               icon: "⚽", sport: "football" },
-  { key: "soccer_germany_bundesliga", name: "Bundesliga",          icon: "⚽", sport: "football" },
-  { key: "soccer_italy_serie_a",    name: "Serie A",               icon: "⚽", sport: "football" },
-  { key: "soccer_france_ligue_one", name: "Ligue 1",               icon: "⚽", sport: "football" },
-  { key: "soccer_africa_cup_of_nations", name: "AFCON",            icon: "⚽", sport: "football" },
-  { key: "basketball_nba",          name: "NBA",                   icon: "🏀", sport: "basketball" },
-  { key: "basketball_euroleague",   name: "EuroLeague",            icon: "🏀", sport: "basketball" },
-  { key: "tennis_atp_french_open",  name: "ATP Tennis",            icon: "🎾", sport: "tennis" },
-  { key: "cricket_ipl",             name: "IPL Cricket",           icon: "🏏", sport: "cricket" },
-  { key: "cricket_test_match",      name: "Test Cricket",          icon: "🏏", sport: "cricket" },
-  { key: "baseball_mlb",            name: "MLB",                   icon: "⚾", sport: "baseball" },
-  { key: "icehockey_nhl",           name: "NHL",                   icon: "🏒", sport: "ice-hockey" },
-  { key: "mma_mixed_martial_arts",  name: "MMA / UFC",             icon: "🥊", sport: "mma" },
-  { key: "rugbyleague_nrl",         name: "NRL Rugby",             icon: "🏉", sport: "rugby" },
+  { key: "soccer_epl",                  name: "Premier League",     icon: "⚽", sport: "football" },
+  { key: "soccer_uefa_champs_league",   name: "Champions League",   icon: "⚽", sport: "football" },
+  { key: "soccer_spain_la_liga",        name: "La Liga",            icon: "⚽", sport: "football" },
+  { key: "soccer_germany_bundesliga",   name: "Bundesliga",         icon: "⚽", sport: "football" },
+  { key: "soccer_italy_serie_a",        name: "Serie A",            icon: "⚽", sport: "football" },
+  { key: "soccer_france_ligue_one",     name: "Ligue 1",            icon: "⚽", sport: "football" },
+  { key: "soccer_africa_cup_of_nations", name: "AFCON",             icon: "⚽", sport: "football" },
+  { key: "basketball_nba",              name: "NBA",                icon: "🏀", sport: "basketball" },
+  { key: "basketball_euroleague",       name: "EuroLeague",         icon: "🏀", sport: "basketball" },
+  { key: "tennis_atp_french_open",      name: "ATP Tennis",         icon: "🎾", sport: "tennis" },
+  { key: "cricket_ipl",                 name: "IPL Cricket",        icon: "🏏", sport: "cricket" },
+  { key: "cricket_test_match",          name: "Test Cricket",       icon: "🏏", sport: "cricket" },
+  { key: "baseball_mlb",               name: "MLB",                icon: "⚾", sport: "baseball" },
+  { key: "icehockey_nhl",              name: "NHL",                icon: "🏒", sport: "ice-hockey" },
+  { key: "mma_mixed_martial_arts",     name: "MMA / UFC",          icon: "🥊", sport: "mma" },
+  { key: "rugbyleague_nrl",            name: "NRL Rugby",          icon: "🏉", sport: "rugby" },
 ];
 
-// ─── In-memory server-side cache ─────────────────────────────────────────────
-
-interface CacheEntry<T> {
-  data: T;
-  expiresAt: number;
-}
-
-const cache = new Map<string, CacheEntry<unknown>>();
-
-function getCache<T>(key: string): T | null {
-  const entry = cache.get(key) as CacheEntry<T> | undefined;
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
-    cache.delete(key);
-    return null;
-  }
-  return entry.data;
-}
-
-function setCache<T>(key: string, data: T, ttlMs: number): void {
-  cache.set(key, { data, expiresAt: Date.now() + ttlMs });
-}
-
-// ─── Request throttle (max 1 request per second) ────────────────────────────
+// ─── Request Throttle & Retry ────────────────────────────────────────────────
 
 let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 1100; // 1.1 seconds between requests
+const MIN_INTERVAL = 1100;
 
 async function throttle(): Promise<void> {
-  const now = Date.now();
-  const elapsed = now - lastRequestTime;
-  if (elapsed < MIN_REQUEST_INTERVAL) {
-    await new Promise((resolve) => setTimeout(resolve, MIN_REQUEST_INTERVAL - elapsed));
+  const elapsed = Date.now() - lastRequestTime;
+  if (elapsed < MIN_INTERVAL) {
+    await new Promise((r) => setTimeout(r, MIN_INTERVAL - elapsed));
   }
   lastRequestTime = Date.now();
 }
 
-// ─── Fetch helpers with retry on 429 ─────────────────────────────────────────
-
-async function oddsApiFetch<T>(
-  path: string,
-  params: Record<string, string> = {},
-  retries = 2
-): Promise<T> {
-  if (!ODDS_API_KEY) {
-    throw new Error("ODDS_API_KEY environment variable is not set");
-  }
-
+async function oddsApiFetch<T>(path: string, params: Record<string, string> = {}, retries = 2): Promise<T> {
+  if (!ODDS_API_KEY) throw new Error("ODDS_API_KEY not set");
   await throttle();
 
   const url = new URL(`${BASE_URL}${path}`);
   url.searchParams.set("apiKey", ODDS_API_KEY);
-  for (const [k, v] of Object.entries(params)) {
-    url.searchParams.set(k, v);
-  }
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
-  const res = await fetch(url.toString(), { next: { revalidate: 0 } });
+  const res = await fetch(url.toString(), { cache: "no-store" });
 
-  // Handle rate limiting with exponential backoff
   if (res.status === 429 && retries > 0) {
-    const retryAfter = parseInt(res.headers.get("retry-after") || "5", 10);
-    const backoffMs = Math.max(retryAfter * 1000, 3000) * (3 - retries);
-    console.warn(`[oddsapi] Rate limited (429), retrying in ${backoffMs}ms... (${retries} retries left)`);
-    await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    const wait = Math.max(parseInt(res.headers.get("retry-after") || "5", 10) * 1000, 3000) * (3 - retries);
+    console.warn(`[oddsapi] 429 — retrying in ${wait}ms (${retries} left)`);
+    await new Promise((r) => setTimeout(r, wait));
     return oddsApiFetch<T>(path, params, retries - 1);
   }
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Odds API error ${res.status}: ${text}`);
+    throw new Error(`Odds API ${res.status}: ${text}`);
   }
 
-  // Log remaining API credits
   const remaining = res.headers.get("x-requests-remaining");
-  const used = res.headers.get("x-requests-used");
-  if (remaining) {
-    console.log(`[oddsapi] API credits: ${used} used, ${remaining} remaining`);
-  }
+  if (remaining) console.log(`[oddsapi] credits: ${res.headers.get("x-requests-used")} used, ${remaining} remaining`);
 
   return res.json() as Promise<T>;
 }
 
-// ─── Normalisation: OddsAPIEvent → Match ─────────────────────────────────────
+// ─── Normalise Event → Match ─────────────────────────────────────────────────
 
-/**
- * Picks the best available bookmaker odds for h2h (moneyline) market.
- * Prefers Pinnacle → Bet365 → first available.
- */
 function extractOdds(event: OddsAPIEvent): { home: number; draw: number; away: number } | null {
-  const PREFERRED = ["pinnacle", "bet365", "unibet", "betfair_ex_eu", "betfair_ex_uk"];
-  let bookmaker = event.bookmakers.find((b) => PREFERRED.includes(b.key));
-  if (!bookmaker) bookmaker = event.bookmakers[0];
-  if (!bookmaker) return null;
-
-  const h2h = bookmaker.markets.find((m) => m.key === "h2h");
+  const PREFERRED = ["pinnacle", "bet365", "unibet", "betfair_ex_eu"];
+  let bm = event.bookmakers.find((b) => PREFERRED.includes(b.key)) || event.bookmakers[0];
+  if (!bm) return null;
+  const h2h = bm.markets.find((m) => m.key === "h2h");
   if (!h2h) return null;
-
-  const homeOutcome = h2h.outcomes.find((o) => o.name === event.home_team);
-  const awayOutcome = h2h.outcomes.find((o) => o.name === event.away_team);
-  const drawOutcome = h2h.outcomes.find(
-    (o) => o.name !== event.home_team && o.name !== event.away_team
-  );
-
-  if (!homeOutcome || !awayOutcome) return null;
-
-  return {
-    home: +homeOutcome.price.toFixed(2),
-    draw: drawOutcome ? +drawOutcome.price.toFixed(2) : 0,
-    away: +awayOutcome.price.toFixed(2),
-  };
+  const home = h2h.outcomes.find((o) => o.name === event.home_team);
+  const away = h2h.outcomes.find((o) => o.name === event.away_team);
+  const draw = h2h.outcomes.find((o) => o.name !== event.home_team && o.name !== event.away_team);
+  if (!home || !away) return null;
+  return { home: +home.price.toFixed(2), draw: draw ? +draw.price.toFixed(2) : 0, away: +away.price.toFixed(2) };
 }
 
 function normaliseEvent(event: OddsAPIEvent, sportMeta: typeof SUPPORTED_SPORTS[number]): Match | null {
   const odds = extractOdds(event);
   if (!odds) return null;
 
-  const commenceDate = new Date(event.commence_time);
+  const d = new Date(event.commence_time);
   const now = new Date();
-  const isToday = commenceDate.toDateString() === now.toDateString();
-  const isTomorrow =
-    commenceDate.toDateString() ===
-    new Date(now.getTime() + 86400000).toDateString();
+  const isToday = d.toDateString() === now.toDateString();
+  const isTomorrow = d.toDateString() === new Date(now.getTime() + 86400000).toDateString();
+  const fmt = (dt: Date) => dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
-  const timeLabel = isToday
-    ? `Today, ${commenceDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
-    : isTomorrow
-    ? `Tomorrow, ${commenceDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
-    : commenceDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) +
-      `, ${commenceDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  const time = isToday ? `Today, ${fmt(d)}`
+    : isTomorrow ? `Tomorrow, ${fmt(d)}`
+    : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}, ${fmt(d)}`;
 
   return {
     id: event.id,
     league: event.sport_title,
     homeTeam: event.home_team,
     awayTeam: event.away_team,
-    time: timeLabel,
+    time,
+    commenceTime: event.commence_time,
     isLive: false,
     odds,
-    markets: event.bookmakers.reduce((acc, b) => acc + b.markets.length, 0),
+    markets: event.bookmakers.reduce((a, b) => a + b.markets.length, 0),
     sport: sportMeta.sport,
   };
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+// GLOBAL MATCH STORE — Pre-fetched, always ready
+// ═════════════════════════════════════════════════════════════════════════════
 
-/**
- * Fetch upcoming odds for a single sport key.
- * Cached for 10 minutes to conserve API credits.
- */
-export async function fetchOddsForSport(sportKey: string): Promise<Match[]> {
-  const cacheKey = `odds:${sportKey}`;
-  const cached = getCache<Match[]>(cacheKey);
-  if (cached) return cached;
-
-  const sportMeta = SUPPORTED_SPORTS.find((s) => s.key === sportKey);
-  if (!sportMeta) return [];
-
-  try {
-    const events = await oddsApiFetch<OddsAPIEvent[]>(`/sports/${sportKey}/odds`, {
-      regions: "eu,uk",
-      markets: "h2h",
-      oddsFormat: "decimal",
-      dateFormat: "iso",
-    });
-
-    const matches = events
-      .map((e) => normaliseEvent(e, sportMeta))
-      .filter((m): m is Match => m !== null);
-
-    setCache(cacheKey, matches, 10 * 60 * 1000); // 10 min TTL (was 5 min)
-    return matches;
-  } catch (err) {
-    console.error(`[oddsapi] fetchOddsForSport(${sportKey}) failed:`, err);
-    return [];
-  }
+interface MatchStore {
+  matches: Match[];
+  lastRefresh: number;
+  refreshing: boolean;
+  initialized: boolean;
 }
 
-/**
- * Fetch live in-play scores for a single sport key.
- * Cached for 60 seconds for near-real-time updates.
- */
-export async function fetchLiveScores(sportKey: string): Promise<OddsAPIScore[]> {
-  const cacheKey = `scores:${sportKey}`;
-  const cached = getCache<OddsAPIScore[]>(cacheKey);
-  if (cached) return cached;
+const store: MatchStore = {
+  matches: [],
+  lastRefresh: 0,
+  refreshing: false,
+  initialized: false,
+};
 
-  try {
-    const scores = await oddsApiFetch<OddsAPIScore[]>(`/sports/${sportKey}/scores`, {
-      daysFrom: "1",
-    });
-    setCache(cacheKey, scores, 60 * 1000); // 60 sec TTL (was 30 sec)
-    return scores;
-  } catch (err) {
-    console.error(`[oddsapi] fetchLiveScores(${sportKey}) failed:`, err);
-    return [];
-  }
-}
+const REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes
 
 /**
- * Fetch upcoming matches across ALL supported sports.
- * Runs fetches SEQUENTIALLY with throttling to avoid 429 errors.
- * Each sport is cached individually, so only uncached sports hit the API.
+ * Fetch all matches from all sports sequentially and populate the store.
+ * Called once on first request, then every 10 minutes in the background.
  */
-export async function fetchAllMatches(): Promise<Match[]> {
+async function refreshStore(): Promise<void> {
+  if (store.refreshing) return;
+  store.refreshing = true;
+
+  console.log("[oddsapi] Refreshing match store...");
   const allMatches: Match[] = [];
-
-  for (const sport of SUPPORTED_SPORTS) {
-    try {
-      const matches = await fetchOddsForSport(sport.key);
-      allMatches.push(...matches);
-    } catch {
-      // Skip failed sports silently
-    }
-  }
-
-  return allMatches;
-}
-
-/**
- * Fetch matches for a specific sport category (e.g. "football", "basketball").
- * Fetches all sport keys that belong to this category SEQUENTIALLY.
- */
-export async function fetchMatchesBySport(sportCategory: string): Promise<Match[]> {
-  const sportKeys = SUPPORTED_SPORTS.filter((s) => s.sport === sportCategory);
-  const allMatches: Match[] = [];
-
-  for (const sport of sportKeys) {
-    try {
-      const matches = await fetchOddsForSport(sport.key);
-      allMatches.push(...matches);
-    } catch {
-      // Skip failed sport keys silently
-    }
-  }
-
-  return allMatches;
-}
-
-/**
- * Fetch in-play events for all supported sports and merge live scores.
- * Runs SEQUENTIALLY to respect rate limits.
- * Returns matches enriched with current score and minute.
- */
-export async function fetchLiveMatches(): Promise<Match[]> {
-  const liveMatches: Match[] = [];
-
-  // Cache the entire live result set for 2 minutes
-  const cacheKey = "live:all";
-  const cached = getCache<Match[]>(cacheKey);
-  if (cached) return cached;
 
   for (const sportMeta of SUPPORTED_SPORTS) {
     try {
-      // Check if we already have cached odds for this sport
-      const oddsCacheKey = `odds:${sportMeta.key}`;
-      let events: OddsAPIEvent[];
-      const cachedOdds = getCache<Match[]>(oddsCacheKey);
-
-      if (cachedOdds) {
-        // Use cached data to find live matches without an API call
-        const now = Date.now();
-        const liveFromCache = cachedOdds.filter((m) => {
-          // We can't easily determine "live" from cached Match objects
-          // so we fetch scores separately
-          return false; // Fall through to score-based detection
-        });
-        // Still need to fetch odds if not cached
-        events = await oddsApiFetch<OddsAPIEvent[]>(
-          `/sports/${sportMeta.key}/odds`,
-          {
-            regions: "eu,uk",
-            markets: "h2h",
-            oddsFormat: "decimal",
-            dateFormat: "iso",
-          }
-        );
-      } else {
-        events = await oddsApiFetch<OddsAPIEvent[]>(
-          `/sports/${sportMeta.key}/odds`,
-          {
-            regions: "eu,uk",
-            markets: "h2h",
-            oddsFormat: "decimal",
-            dateFormat: "iso",
-          }
-        );
-        // Cache these odds too
-        const matches = events
-          .map((e) => normaliseEvent(e, sportMeta))
-          .filter((m): m is Match => m !== null);
-        setCache(oddsCacheKey, matches, 10 * 60 * 1000);
-      }
-
-      // Scores for this sport
-      const scores = await fetchLiveScores(sportMeta.key);
-      const scoreMap = new Map(scores.map((s) => [s.id, s]));
-
-      const now = Date.now();
-      for (const event of events) {
-        const commence = new Date(event.commence_time).getTime();
-        // Consider a match "live" if it started within the last 3 hours
-        const isLive = commence <= now && now - commence < 3 * 60 * 60 * 1000;
-        if (!isLive) continue;
-
-        const match = normaliseEvent(event, sportMeta);
-        if (!match) continue;
-
-        const scoreData = scoreMap.get(event.id);
-        if (scoreData?.scores) {
-          const homeScore = scoreData.scores.find((s) => s.name === event.home_team);
-          const awayScore = scoreData.scores.find((s) => s.name === event.away_team);
-          match.homeScore = homeScore ? parseInt(homeScore.score, 10) : undefined;
-          match.awayScore = awayScore ? parseInt(awayScore.score, 10) : undefined;
-        }
-
-        match.isLive = true;
-        const elapsedMin = Math.floor((now - commence) / 60000);
-        match.minute = Math.min(90, elapsedMin);
-        match.time = `${match.minute}'`;
-
-        liveMatches.push(match);
-      }
-    } catch {
-      // Silently skip sports with no live events or rate limit issues
+      const events = await oddsApiFetch<OddsAPIEvent[]>(`/sports/${sportMeta.key}/odds`, {
+        regions: "eu,uk",
+        markets: "h2h",
+        oddsFormat: "decimal",
+        dateFormat: "iso",
+      });
+      const matches = events.map((e) => normaliseEvent(e, sportMeta)).filter((m): m is Match => m !== null);
+      allMatches.push(...matches);
+    } catch (err) {
+      // Log but continue — don't let one sport failure block everything
+      console.warn(`[oddsapi] Skipping ${sportMeta.key}:`, err instanceof Error ? err.message : err);
     }
   }
 
-  // Cache live results for 2 minutes
-  setCache(cacheKey, liveMatches, 2 * 60 * 1000);
-  return liveMatches;
+  store.matches = allMatches;
+  store.lastRefresh = Date.now();
+  store.initialized = true;
+  store.refreshing = false;
+
+  console.log(`[oddsapi] Store refreshed: ${allMatches.length} matches across ${SUPPORTED_SPORTS.length} sports`);
+}
+
+/**
+ * Ensure the store is populated. If stale, triggers a background refresh
+ * but still returns the current (stale) data instantly.
+ */
+async function ensureStore(): Promise<void> {
+  if (!store.initialized) {
+    // First request ever — must wait for initial load
+    await refreshStore();
+    return;
+  }
+
+  // If data is stale, trigger background refresh (don't wait)
+  if (Date.now() - store.lastRefresh > REFRESH_INTERVAL && !store.refreshing) {
+    refreshStore().catch((err) => console.error("[oddsapi] Background refresh failed:", err));
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PUBLIC API — All reads are instant from the store
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get all matches, optionally filtered by sport category and date range.
+ * Returns INSTANTLY from the in-memory store.
+ */
+export async function getMatches(options?: {
+  sport?: string;       // "football", "basketball", etc. or "all"
+  time?: string;        // "today", "tomorrow", "week", "all"
+}): Promise<{ upcoming: Match[]; live: Match[]; total: number }> {
+  await ensureStore();
+
+  const sport = options?.sport || "all";
+  const time = options?.time || "all";
+  const now = new Date();
+
+  let matches = [...store.matches];
+
+  // ── Filter by sport ────────────────────────────────────────────────────────
+  if (sport !== "all") {
+    const isDirectKey = SUPPORTED_SPORTS.some((s) => s.key === sport);
+    if (isDirectKey) {
+      const cat = SUPPORTED_SPORTS.find((s) => s.key === sport)?.sport;
+      matches = matches.filter((m) => m.sport === cat);
+    } else {
+      matches = matches.filter((m) => m.sport === sport);
+    }
+  }
+
+  // ── Filter by date ─────────────────────────────────────────────────────────
+  if (time !== "all" && time) {
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfTomorrow = new Date(startOfToday.getTime() + 86400000);
+    const startOfDayAfterTomorrow = new Date(startOfTomorrow.getTime() + 86400000);
+    const endOfWeek = new Date(startOfToday.getTime() + 7 * 86400000);
+
+    matches = matches.filter((m) => {
+      if (!m.commenceTime) return true;
+      const ct = new Date(m.commenceTime);
+
+      switch (time.toLowerCase()) {
+        case "today":
+          return ct >= startOfToday && ct < startOfTomorrow;
+        case "tomorrow":
+          return ct >= startOfTomorrow && ct < startOfDayAfterTomorrow;
+        case "this week":
+        case "week":
+          return ct >= startOfToday && ct < endOfWeek;
+        default:
+          return true;
+      }
+    });
+  }
+
+  // ── Separate live vs upcoming ──────────────────────────────────────────────
+  const nowMs = now.getTime();
+  const live: Match[] = [];
+  const upcoming: Match[] = [];
+
+  for (const m of matches) {
+    if (m.commenceTime) {
+      const commence = new Date(m.commenceTime).getTime();
+      const isLive = commence <= nowMs && nowMs - commence < 3 * 60 * 60 * 1000;
+      if (isLive) {
+        m.isLive = true;
+        m.minute = Math.min(90, Math.floor((nowMs - commence) / 60000));
+        m.time = `${m.minute}'`;
+        live.push(m);
+        continue;
+      }
+    }
+    upcoming.push(m);
+  }
+
+  // Sort upcoming by commence time (soonest first)
+  upcoming.sort((a, b) => {
+    if (!a.commenceTime || !b.commenceTime) return 0;
+    return new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime();
+  });
+
+  return { upcoming, live, total: live.length + upcoming.length };
 }
 
 /**
  * Fetch odds for a single specific event by its Odds API event ID.
- * Used on the match detail page.
+ * This one still hits the API directly (single event, fast response).
  */
 export async function fetchMatchById(sportKey: string, eventId: string): Promise<Match | null> {
-  const cacheKey = `match:${eventId}`;
-  const cached = getCache<Match>(cacheKey);
-  if (cached) return cached;
+  // First check the store
+  await ensureStore();
+  const fromStore = store.matches.find((m) => m.id === eventId);
+  if (fromStore) return fromStore;
 
+  // Not in store — fetch directly
   const sportMeta = SUPPORTED_SPORTS.find((s) => s.key === sportKey);
   if (!sportMeta) return null;
 
@@ -430,13 +314,26 @@ export async function fetchMatchById(sportKey: string, eventId: string): Promise
       dateFormat: "iso",
       eventIds: eventId,
     });
-
     if (!events.length) return null;
-    const match = normaliseEvent(events[0], sportMeta);
-    if (match) setCache(cacheKey, match, 5 * 60 * 1000); // 5 min TTL (was 2 min)
-    return match;
+    return normaliseEvent(events[0], sportMeta);
   } catch (err) {
     console.error(`[oddsapi] fetchMatchById(${eventId}) failed:`, err);
     return null;
   }
+}
+
+/**
+ * Get the store status (for debugging/admin).
+ */
+export function getStoreStatus() {
+  return {
+    matchCount: store.matches.length,
+    lastRefresh: store.lastRefresh ? new Date(store.lastRefresh).toISOString() : "never",
+    isRefreshing: store.refreshing,
+    initialized: store.initialized,
+    sportBreakdown: SUPPORTED_SPORTS.map((s) => ({
+      sport: s.name,
+      count: store.matches.filter((m) => m.sport === s.sport && m.league === s.name).length,
+    })).filter((s) => s.count > 0),
+  };
 }

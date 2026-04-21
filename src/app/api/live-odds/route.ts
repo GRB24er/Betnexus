@@ -1,17 +1,16 @@
-import { fetchLiveMatches } from "@/lib/oddsapi";
+import { getMatches } from "@/lib/oddsapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SSE_INTERVAL_MS = 30_000;          // Poll every 30 seconds (conserves API credits)
-const SSE_MAX_DURATION_MS = 10 * 60 * 1_000; // Close after 10 minutes, client reconnects
+const SSE_INTERVAL_MS = 30_000;
+const SSE_MAX_DURATION_MS = 10 * 60 * 1_000;
 
 /**
  * GET /api/live-odds
  *
- * Server-Sent Events stream that pushes real live match updates from
- * The Odds API every 30 seconds. Clients reconnect automatically via
- * the EventSource API.
+ * Server-Sent Events stream that pushes live match updates every 30 seconds.
+ * Reads INSTANTLY from the in-memory store — no API calls per SSE tick.
  */
 export async function GET() {
   const encoder = new TextEncoder();
@@ -41,8 +40,8 @@ export async function GET() {
 
       const send = async () => {
         try {
-          const liveMatches = await fetchLiveMatches();
-          const updates = liveMatches.map((m) => ({
+          const { live } = await getMatches();
+          const updates = live.map((m) => ({
             id: m.id,
             homeTeam: m.homeTeam,
             awayTeam: m.awayTeam,
@@ -64,9 +63,7 @@ export async function GET() {
         }
       };
 
-      // Send initial payload immediately
       await send();
-
       interval = setInterval(send, SSE_INTERVAL_MS);
       timeout = setTimeout(cleanup, SSE_MAX_DURATION_MS);
 
@@ -74,7 +71,7 @@ export async function GET() {
     },
 
     cancel() {
-      // Client disconnected — cleanup handled via closure above
+      // Client disconnected
     },
   });
 

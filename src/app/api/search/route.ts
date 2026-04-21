@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllMatches, fetchLiveMatches } from "@/lib/oddsapi";
+import { getMatches } from "@/lib/oddsapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,20 +11,10 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const [liveMatches, upcomingMatches] = await Promise.all([
-      fetchLiveMatches(),
-      fetchAllMatches(),
-    ]);
+    const { live, upcoming } = await getMatches();
+    const allMatches = [...live, ...upcoming];
 
-    const allMatches = [...liveMatches, ...upcomingMatches];
-    const seen = new Set<string>();
-    const unique = allMatches.filter((m) => {
-      if (seen.has(m.id)) return false;
-      seen.add(m.id);
-      return true;
-    });
-
-    const results = unique
+    const results = allMatches
       .filter((m) => {
         const searchable = `${m.homeTeam} ${m.awayTeam} ${m.league} ${m.sport}`.toLowerCase();
         return searchable.includes(q);
