@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   fetchAllMatches,
   fetchLiveMatches,
+  fetchMatchesBySport,
   fetchOddsForSport,
   SUPPORTED_SPORTS,
 } from "@/lib/oddsapi";
@@ -35,25 +36,19 @@ export async function GET(req: NextRequest) {
 
     if (type !== "live") {
       if (sport === "all") {
-        // Fetch all sports in parallel
+        // Fetch all sports sequentially (respects rate limits)
         upcomingMatches = await fetchAllMatches();
       } else {
         // sport can be a category name like "basketball" OR a raw key like "basketball_nba"
-        // Find all Odds API sport keys that belong to this category
-        const matchingSports = SUPPORTED_SPORTS.filter(
-          (s) => s.sport === sport || s.key === sport
-        );
+        const isDirectKey = SUPPORTED_SPORTS.some((s) => s.key === sport);
 
-        if (matchingSports.length > 0) {
-          // Fetch all leagues for this sport category in parallel
-          const results = await Promise.allSettled(
-            matchingSports.map((s) => fetchOddsForSport(s.key))
-          );
-          upcomingMatches = results.flatMap((r) =>
-            r.status === "fulfilled" ? r.value : []
-          );
+        if (isDirectKey) {
+          // Direct sport key lookup
+          upcomingMatches = await fetchOddsForSport(sport);
+        } else {
+          // Category name — fetch all leagues sequentially
+          upcomingMatches = await fetchMatchesBySport(sport);
         }
-        // If no matching sports found, upcomingMatches stays []
       }
     }
 
@@ -63,7 +58,6 @@ export async function GET(req: NextRequest) {
 
     // ── Filter live matches by sport category if requested ─────────────────────
     if (sport !== "all") {
-      // Determine the normalised sport category name
       const categoryName =
         SUPPORTED_SPORTS.find((s) => s.key === sport)?.sport || sport;
       liveMatches = liveMatches.filter((m) => m.sport === categoryName);
