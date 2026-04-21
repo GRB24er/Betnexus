@@ -259,8 +259,9 @@ export default function BetSlip() {
                   setError(null);
                   setPlaced(false);
                   try {
+                    // Use matchId directly from the item — no more splitting on "-"
                     const selections = items.map((i) => ({
-                      matchId: i.id.split("-")[0],
+                      matchId: i.matchId,
                       match: i.match,
                       market: i.market,
                       selection: i.selection,
