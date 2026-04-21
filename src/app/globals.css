@@ -292,6 +292,3 @@ body {
 img {
   transition: opacity 0.3s ease;
 }
-img[loading] {
-  opacity: 0;
-}
