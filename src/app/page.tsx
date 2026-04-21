@@ -151,6 +151,7 @@ export default function HomePage() {
                 src={banner.image}
                 alt={banner.title}
                 fill
+                sizes="100vw"
                 className="object-cover"
                 priority={i === 0}
               />
@@ -232,6 +233,7 @@ export default function HomePage() {
                   src={promo.image}
                   alt={promo.title}
                   fill
+                  sizes="(max-width: 768px) 50vw, 25vw"
                   className="object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
@@ -306,6 +308,7 @@ export default function HomePage() {
                     src={sport.image}
                     alt={sport.name}
                     fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                     className="object-cover group-hover:scale-110 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
