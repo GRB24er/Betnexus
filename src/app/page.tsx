@@ -1,10 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Zap,
   TrendingUp,
   ArrowRight,
   ChevronRight,
+  ChevronLeft,
   Timer,
   Users,
   Star,
@@ -16,13 +17,96 @@ import {
   Clock,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import MatchCard from "@/components/MatchCard";
 import { promotions, virtualGames, casinoGames, Match } from "@/lib/data";
+
+const heroBanners = [
+  {
+    image: "/images/banners/hero-football.jpg",
+    title: "Premium Sports Betting",
+    subtitle: "Bet on the world's biggest football leagues with the best odds.",
+    cta: "Bet Now",
+    ctaLink: "/sports?cat=football",
+    badge: "FOOTBALL",
+    badgeColor: "bg-[#00d46e]",
+  },
+  {
+    image: "/images/banners/hero-basketball.jpg",
+    title: "Elevate Your Game",
+    subtitle: "NBA, EuroLeague & more. Live odds updated every second.",
+    cta: "View Basketball",
+    ctaLink: "/sports?cat=basketball",
+    badge: "BASKETBALL",
+    badgeColor: "bg-[#ff6b35]",
+  },
+  {
+    image: "/images/banners/hero-live.jpg",
+    title: "Live Betting",
+    subtitle: "Every moment matters. Bet in real-time on live matches across all sports.",
+    cta: "Go Live",
+    ctaLink: "/live",
+    badge: "LIVE",
+    badgeColor: "bg-[#ff4757]",
+  },
+  {
+    image: "/images/banners/hero-cashout.jpg",
+    title: "Instant Cash Out",
+    subtitle: "Take your winnings early. Cash out anytime before the match ends.",
+    cta: "Start Winning",
+    ctaLink: "/sports",
+    badge: "CASH OUT",
+    badgeColor: "bg-[#ffc107]",
+  },
+];
+
+const promoCards = [
+  {
+    image: "/images/promos/welcome-bonus.jpg",
+    title: "Welcome Bonus",
+    desc: "Get up to 100% bonus on your first deposit. Start winning big today!",
+    cta: "Claim Now",
+    link: "/deposit",
+  },
+  {
+    image: "/images/promos/live-betting.jpg",
+    title: "Live Betting",
+    desc: "Bet on matches as they happen. Real-time odds, real-time action.",
+    cta: "Bet Live",
+    link: "/live",
+  },
+  {
+    image: "/images/promos/multi-bet.jpg",
+    title: "Accumulator Boost",
+    desc: "Combine multiple bets and multiply your winnings up to 10x!",
+    cta: "Build Acca",
+    link: "/sports",
+  },
+  {
+    image: "/images/promos/virtual-sports.jpg",
+    title: "Virtual Sports",
+    desc: "24/7 virtual football, basketball, racing & more. Instant results.",
+    cta: "Play Now",
+    link: "/virtuals",
+  },
+];
+
+const sportCategories = [
+  { name: "Football", icon: "\u26BD", image: "/images/sports/football-header.jpg", color: "from-[#00d46e]/30 to-[#00d46e]/5", border: "border-[#00d46e]/30", href: "/sports?cat=football" },
+  { name: "Basketball", icon: "\uD83C\uDFC0", image: "/images/sports/basketball-header.jpg", color: "from-[#ff6b35]/30 to-[#ff6b35]/5", border: "border-[#ff6b35]/30", href: "/sports?cat=basketball" },
+  { name: "Tennis", icon: "\uD83C\uDFBE", image: "/images/sports/tennis-header.jpg", color: "from-[#ffc107]/30 to-[#ffc107]/5", border: "border-[#ffc107]/30", href: "/sports?cat=tennis" },
+  { name: "Cricket", icon: "\uD83C\uDFCF", image: "/images/sports/cricket-header.jpg", color: "from-[#3b82f6]/30 to-[#3b82f6]/5", border: "border-[#3b82f6]/30", href: "/sports?cat=cricket" },
+  { name: "MMA", icon: "\uD83E\uDD4A", image: "/images/sports/mma-header.jpg", color: "from-[#8b5cf6]/30 to-[#8b5cf6]/5", border: "border-[#8b5cf6]/30", href: "/sports?cat=mma" },
+  { name: "Baseball", icon: "\u26BE", color: "from-[#ff4757]/30 to-[#ff4757]/5", border: "border-[#ff4757]/30", href: "/sports?cat=baseball" },
+  { name: "Hockey", icon: "\uD83C\uDFD2", color: "from-[#06b6d4]/30 to-[#06b6d4]/5", border: "border-[#06b6d4]/30", href: "/sports?cat=ice-hockey" },
+  { name: "Rugby", icon: "\uD83C\uDFC9", color: "from-[#10b981]/30 to-[#10b981]/5", border: "border-[#10b981]/30", href: "/sports?cat=rugby" },
+];
 
 export default function HomePage() {
   const [liveMatches, setLiveMatches] = useState<Match[]>([]);
   const [featuredMatches, setFeaturedMatches] = useState<Match[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(true);
+  const [currentBanner, setCurrentBanner] = useState(0);
 
   useEffect(() => {
     fetch("/api/matches?type=all")
@@ -35,81 +119,132 @@ export default function HomePage() {
       .finally(() => setLoadingMatches(false));
   }, []);
 
+  // Auto-rotate hero banners
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentBanner((prev) => (prev + 1) % heroBanners.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const nextBanner = useCallback(() => {
+    setCurrentBanner((prev) => (prev + 1) % heroBanners.length);
+  }, []);
+
+  const prevBanner = useCallback(() => {
+    setCurrentBanner((prev) => (prev - 1 + heroBanners.length) % heroBanners.length);
+  }, []);
+
   return (
     <div className="min-h-screen">
-      {/* ═══ HERO BANNER ═══ */}
-      <section className="relative gradient-hero-premium overflow-hidden">
-        {/* Decorative orbs */}
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#00d46e] rounded-full blur-[200px] opacity-[0.04]" />
-        <div className="absolute bottom-0 left-1/4 w-[300px] h-[300px] bg-[#3b82f6] rounded-full blur-[150px] opacity-[0.05]" />
+      {/* ═══ HERO BANNER CAROUSEL (Bet365 + Betway style) ═══ */}
+      <section className="relative overflow-hidden">
+        <div className="relative h-[280px] sm:h-[340px] lg:h-[400px]">
+          {heroBanners.map((banner, i) => (
+            <div
+              key={i}
+              className={`absolute inset-0 transition-all duration-700 ease-in-out ${
+                i === currentBanner ? "opacity-100 scale-100" : "opacity-0 scale-105"
+              }`}
+            >
+              <Image
+                src={banner.image}
+                alt={banner.title}
+                fill
+                className="object-cover"
+                priority={i === 0}
+              />
+              {/* Dark gradient overlay for text readability */}
+              <div className="absolute inset-0 bg-gradient-to-r from-[#0a0c14]/90 via-[#0a0c14]/60 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c14] via-transparent to-transparent opacity-60" />
 
-        <div className="relative px-4 lg:px-6 pt-8 lg:pt-12 pb-6">
-          {/* Main CTA Hero */}
-          <div className="mb-8 fade-in-up">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold bg-[#00d46e]/15 text-[#00d46e] px-3 py-1 rounded-full border border-[#00d46e]/20">
-                <Zap className="w-3 h-3" fill="currentColor" /> LIVE BETTING
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold bg-[#ff4757]/15 text-[#ff4757] px-3 py-1 rounded-full border border-[#ff4757]/20">
-                <span className="w-1.5 h-1.5 bg-[#ff4757] rounded-full live-pulse" /> {liveMatches.length || "—"} LIVE
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight mb-2">
-              Bet on <span className="text-gradient-green">Real Sports.</span><br />
-              Win <span className="text-gradient-gold">Real Money.</span>
-            </h1>
-            <p className="text-sm sm:text-base text-[#8b95b8] max-w-lg mb-5">
-              Live odds from 16+ leagues. Instant deposits. Fast payouts. Your next big win starts here.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/sports"
-                className="inline-flex items-center gap-2 gradient-green text-white font-bold text-sm px-6 py-3 rounded-xl hover:opacity-90 transition-all glow-green-strong"
-              >
-                Start Betting <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                href="/live"
-                className="inline-flex items-center gap-2 bg-[#ff4757]/10 border border-[#ff4757]/30 text-[#ff4757] font-bold text-sm px-6 py-3 rounded-xl hover:bg-[#ff4757]/20 transition-all"
-              >
-                <span className="w-2 h-2 bg-[#ff4757] rounded-full live-pulse" /> Watch Live
-              </Link>
-            </div>
-          </div>
-
-          {/* Promotions Carousel */}
-          <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0">
-            {promotions.map((promo, i) => (
-              <div
-                key={promo.id}
-                className={`min-w-[260px] sm:min-w-[320px] md:min-w-[300px] lg:min-w-0 lg:flex-1 snap-start bg-gradient-to-br ${promo.gradient} rounded-xl p-4 sm:p-5 lg:p-6 relative overflow-hidden card-hover fade-in-up fade-in-up-delay-${i + 1}`}
-              >
-                <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-                <span className="inline-block text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full mb-3">
-                  {promo.badge}
+              {/* Banner content */}
+              <div className="relative h-full flex flex-col justify-center px-6 lg:px-10 max-w-2xl">
+                <span className={`inline-flex items-center self-start text-[10px] font-black ${banner.badgeColor} text-white px-3 py-1 rounded-full mb-3 tracking-wider`}>
+                  {banner.badge}
                 </span>
-                <h3 className="text-lg font-bold text-white mb-1.5 leading-tight">
-                  {promo.title}
-                </h3>
-                <p className="text-sm text-white/70 mb-4">{promo.description}</p>
+                <h2 className="text-2xl sm:text-3xl lg:text-5xl font-black text-white leading-tight mb-2 drop-shadow-lg">
+                  {banner.title}
+                </h2>
+                <p className="text-sm sm:text-base text-white/80 mb-5 max-w-md">
+                  {banner.subtitle}
+                </p>
                 <Link
-                  href="/promotions"
-                  className="inline-flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold px-4 py-2 rounded-lg backdrop-blur-sm transition-all"
+                  href={banner.ctaLink}
+                  className="inline-flex items-center gap-2 self-start gradient-green text-white font-bold text-sm px-7 py-3 rounded-xl hover:opacity-90 transition-all glow-green-strong shadow-lg"
                 >
-                  {promo.cta} <ArrowRight className="w-3.5 h-3.5" />
+                  {banner.cta} <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
+            </div>
+          ))}
+
+          {/* Navigation arrows */}
+          <button
+            onClick={prevBanner}
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-black/60 transition-all z-10"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button
+            onClick={nextBanner}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-black/60 transition-all z-10"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+
+          {/* Dot indicators */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+            {heroBanners.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentBanner(i)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === currentBanner ? "w-8 bg-[#00d46e]" : "w-1.5 bg-white/30 hover:bg-white/50"
+                }`}
+              />
             ))}
           </div>
+        </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mt-6">
+        {/* Quick Stats Bar */}
+        <div className="bg-[#0f1118]/80 backdrop-blur-md border-y border-[#2a3050]/50">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-[#2a3050]/50">
             <StatCard icon={<Zap className="w-4 h-4" />} label="Live Events" value={String(liveMatches.length || "24")} color="text-[#ff4757]" />
             <StatCard icon={<TrendingUp className="w-4 h-4" />} label="Today's Events" value="1,247" color="text-[#00d46e]" />
             <StatCard icon={<Users className="w-4 h-4" />} label="Online Now" value="15,892" color="text-[#3b82f6]" />
             <StatCard icon={<Trophy className="w-4 h-4" />} label="Big Wins Today" value="GHS 284K" color="text-[#ffc107]" />
           </div>
+        </div>
+      </section>
+
+      {/* ═══ PROMO CARDS (Bet365 style) ═══ */}
+      <section className="px-4 lg:px-6 py-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+          {promoCards.map((promo, i) => (
+            <Link
+              key={i}
+              href={promo.link}
+              className="group relative rounded-xl overflow-hidden card-hover"
+            >
+              <div className="relative h-40 sm:h-48">
+                <Image
+                  src={promo.image}
+                  alt={promo.title}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
+                  <h3 className="text-sm sm:text-base font-bold text-white mb-0.5">{promo.title}</h3>
+                  <p className="text-[10px] sm:text-xs text-white/60 line-clamp-2 mb-2">{promo.desc}</p>
+                  <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold text-[#00d46e] group-hover:gap-2 transition-all">
+                    {promo.cta} <ArrowRight className="w-3 h-3" />
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
       </section>
 
@@ -122,7 +257,7 @@ export default function HomePage() {
             </div>
             <h2 className="text-lg font-bold text-white ml-1">Live Now</h2>
             <span className="text-[10px] font-bold text-[#ff4757] bg-[#ff4757]/10 px-2.5 py-0.5 rounded-full border border-[#ff4757]/20">
-              {liveMatches.length || "—"} LIVE
+              {liveMatches.length || "\u2014"} LIVE
             </span>
           </div>
           <Link
@@ -155,6 +290,41 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ═══ POPULAR SPORTS (with images — Betway style) ═══ */}
+      <section className="px-4 lg:px-6 py-6">
+        <h2 className="text-lg font-bold text-white mb-4">Popular Sports</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+          {sportCategories.map((sport) => (
+            <Link
+              key={sport.name}
+              href={sport.href}
+              className={`group relative rounded-xl overflow-hidden border ${sport.border} card-hover`}
+            >
+              {sport.image ? (
+                <div className="relative h-28 sm:h-32">
+                  <Image
+                    src={sport.image}
+                    alt={sport.name}
+                    fill
+                    className="object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center gap-2">
+                    <span className="text-xl">{sport.icon}</span>
+                    <span className="text-sm font-bold text-white">{sport.name}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className={`h-28 sm:h-32 bg-gradient-to-b ${sport.color} flex flex-col items-center justify-center gap-2`}>
+                  <span className="text-3xl group-hover:scale-110 transition-transform">{sport.icon}</span>
+                  <span className="text-xs font-bold text-white">{sport.name}</span>
+                </div>
+              )}
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* ═══ FEATURED MATCHES ═══ */}
       <section className="px-4 lg:px-6 py-6">
         <div className="flex items-center justify-between mb-4">
@@ -180,32 +350,6 @@ export default function HomePage() {
                 <MatchCard key={match.id} match={match} />
               ))
           }
-        </div>
-      </section>
-
-      {/* ═══ SPORTS QUICK LINKS ═══ */}
-      <section className="px-4 lg:px-6 py-6">
-        <h2 className="text-lg font-bold text-white mb-4">Popular Sports</h2>
-        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2 sm:gap-3">
-          {[
-            { name: "Football", icon: "\u26BD", color: "from-[#00d46e]/20 to-[#00d46e]/5", href: "/sports?cat=football" },
-            { name: "Basketball", icon: "\uD83C\uDFC0", color: "from-[#ff6b35]/20 to-[#ff6b35]/5", href: "/sports?cat=basketball" },
-            { name: "Tennis", icon: "\uD83C\uDFBE", color: "from-[#ffc107]/20 to-[#ffc107]/5", href: "/sports?cat=tennis" },
-            { name: "Cricket", icon: "\uD83C\uDFCF", color: "from-[#3b82f6]/20 to-[#3b82f6]/5", href: "/sports?cat=cricket" },
-            { name: "Baseball", icon: "\u26BE", color: "from-[#ff4757]/20 to-[#ff4757]/5", href: "/sports?cat=baseball" },
-            { name: "MMA", icon: "\uD83E\uDD4A", color: "from-[#8b5cf6]/20 to-[#8b5cf6]/5", href: "/sports?cat=mma" },
-            { name: "Hockey", icon: "\uD83C\uDFD2", color: "from-[#06b6d4]/20 to-[#06b6d4]/5", href: "/sports?cat=ice-hockey" },
-            { name: "Rugby", icon: "\uD83C\uDFC9", color: "from-[#10b981]/20 to-[#10b981]/5", href: "/sports?cat=rugby" },
-          ].map((sport) => (
-            <Link
-              key={sport.name}
-              href={sport.href}
-              className={`bg-gradient-to-b ${sport.color} border border-[#2a3050] rounded-xl p-3 sm:p-4 flex flex-col items-center gap-1.5 hover:border-[#00d46e]/30 transition-all card-hover group`}
-            >
-              <span className="text-2xl sm:text-3xl group-hover:scale-110 transition-transform">{sport.icon}</span>
-              <span className="text-[10px] sm:text-xs font-medium text-[#8b95b8] group-hover:text-white transition-colors">{sport.name}</span>
-            </Link>
-          ))}
         </div>
       </section>
 
@@ -388,7 +532,7 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="glass rounded-xl px-3 sm:px-4 py-3 sm:py-3.5 flex items-center gap-2 sm:gap-3 card-hover">
+    <div className="px-3 sm:px-4 py-3 sm:py-3.5 flex items-center gap-2 sm:gap-3">
       <div className={`w-9 h-9 rounded-lg bg-[#0f1118]/50 flex items-center justify-center ${color} shrink-0`}>
         {icon}
       </div>
