@@ -16,8 +16,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { User } from "@/models/User";
-import bcrypt from "bcryptjs";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -84,13 +82,14 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Create new admin user ───────────────────────────────────────────────
-    const hashedPassword = await bcrypt.hash(password, 12);
-
+    // NOTE: Do NOT hash password here — the User model's pre-save hook
+    // automatically hashes it. Hashing here would cause double-hashing,
+    // making login impossible.
     await User.create({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: email.toLowerCase().trim(),
-      password: hashedPassword,
+      password: password,
       role: "admin",
       status: "active",
       balance: 0,
