@@ -15,7 +15,7 @@ export default function MatchCard({ match, variant = "default" }: MatchCardProps
   const { items } = useSyncExternalStore(
     betSlipStore.subscribe,
     betSlipStore.getSnapshot,
-    betSlipStore.getSnapshot
+    betSlipStore.getServerSnapshot
   );
 
   const handleOddsClick = (selection: string, odds: number) => {

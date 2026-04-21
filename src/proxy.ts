@@ -18,7 +18,7 @@ const AUTH_ROUTES = ["/login", "/register"];
 
 const SESSION_COOKIE = "betnexus_session";
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;

@@ -6,7 +6,19 @@ let listeners: (() => void)[] = [];
 let betSlipItems: BetItem[] = [];
 let isOpen = false;
 
+// Cached snapshot — React's useSyncExternalStore requires getSnapshot to return
+// the exact same reference when nothing has changed, otherwise it triggers an
+// infinite re-render loop. We only create a new object when state actually mutates.
+type BetSlipSnapshot = { items: BetItem[]; isOpen: boolean };
+let snapshot: BetSlipSnapshot = { items: betSlipItems, isOpen };
+
+// Stable server-side snapshot — always the same empty reference on the server
+const serverSnapshot: BetSlipSnapshot = { items: [], isOpen: false };
+
 function emitChange() {
+  // Rebuild the cached snapshot so getSnapshot returns a new reference only
+  // when something has genuinely changed.
+  snapshot = { items: betSlipItems, isOpen };
   listeners.forEach((l) => l());
 }
 
@@ -18,8 +30,14 @@ export const betSlipStore = {
     };
   },
 
-  getSnapshot() {
-    return { items: betSlipItems, isOpen };
+  // Returns the same object reference until state changes — required by React
+  getSnapshot(): BetSlipSnapshot {
+    return snapshot;
+  },
+
+  // Returns a stable, cached empty snapshot for SSR — avoids hydration mismatch
+  getServerSnapshot(): BetSlipSnapshot {
+    return serverSnapshot;
   },
 
   addBet(item: BetItem) {

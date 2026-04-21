@@ -10,7 +10,7 @@ export default function BetSlip() {
   const { items, isOpen } = useSyncExternalStore(
     betSlipStore.subscribe,
     betSlipStore.getSnapshot,
-    betSlipStore.getSnapshot
+    betSlipStore.getServerSnapshot
   );
   const { user } = useSession();
   const [stakes, setStakes] = useState<Record<string, string>>({});
