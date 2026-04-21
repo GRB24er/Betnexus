@@ -42,7 +42,7 @@ export default function AdminBetsPage() {
   useEffect(() => { fetchBets(); }, [page, statusFilter]);
 
   const handleSettle = async (betId: string, result: string) => {
-    await api.post("/api/admin/bets", { betId, action: "settle", result });
+    await api.patch("/api/admin/bets", { betId, action: "settle", result });
     fetchBets();
   };
 

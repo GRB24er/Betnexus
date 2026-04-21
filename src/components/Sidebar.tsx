@@ -14,9 +14,11 @@ import {
   Timer,
   ChevronDown,
   ChevronRight,
+  Shield,
 } from "lucide-react";
 import { sportsCategories } from "@/lib/data";
 import { useState } from "react";
+import { useSession } from "@/store/session";
 
 const mainNav = [
   { href: "/", label: "Home", icon: Home },
@@ -36,6 +38,7 @@ const quickLinks = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [sportsOpen, setSportsOpen] = useState(false);
+  const { user } = useSession();
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-[240px] bg-[#161925] border-r border-[#2a3050] z-40 flex flex-col overflow-hidden lg:flex hidden">
@@ -145,8 +148,17 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {/* Bottom CTA */}
-      <div className="p-4 border-t border-[#2a3050]">
+      {/* Bottom Section */}
+      <div className="p-4 border-t border-[#2a3050] space-y-2">
+        {user?.role === "admin" && (
+          <Link
+            href="/admin"
+            className="flex items-center justify-center gap-2 w-full bg-[#8b5cf6]/10 border border-[#8b5cf6]/30 text-[#8b5cf6] font-semibold text-sm py-2.5 rounded-lg hover:bg-[#8b5cf6]/20 transition-colors text-center"
+          >
+            <Shield className="w-4 h-4" />
+            Admin Dashboard
+          </Link>
+        )}
         <Link href="/deposit" className="block w-full gradient-green text-white font-semibold text-sm py-2.5 rounded-lg hover:opacity-90 transition-opacity text-center">
           Deposit Now
         </Link>

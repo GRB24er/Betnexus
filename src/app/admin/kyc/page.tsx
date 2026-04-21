@@ -29,7 +29,7 @@ export default function AdminKYCPage() {
   useEffect(fetchDocs, []);
 
   const handleReview = async (docId: string, action: "approve" | "reject") => {
-    await api.post("/api/admin/kyc/review", {
+    await api.patch("/api/admin/kyc/review", {
       documentId: docId,
       action,
       note: reviewNote[docId] || undefined,

@@ -15,6 +15,7 @@ import {
   Gamepad2,
   MonitorPlay,
   Gift,
+  Shield,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useSession } from "@/store/session";
@@ -102,6 +103,17 @@ export default function Header() {
             <Bell className="w-5 h-5" />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#ff4757] rounded-full" />
           </Link>
+
+          {/* Admin Link (only for admins) */}
+          {user?.role === "admin" && (
+            <Link
+              href="/admin"
+              className="p-2.5 text-[#8b5cf6] hover:text-[#a78bfa] transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center hidden sm:flex"
+              title="Admin Dashboard"
+            >
+              <Shield className="w-5 h-5" />
+            </Link>
+          )}
 
           {/* User */}
           <Link href="/account" className="p-2.5 text-[#8b95b8] hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center hidden sm:flex">
