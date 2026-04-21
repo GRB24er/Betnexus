@@ -25,6 +25,7 @@ type SessionState = {
 };
 
 let state: SessionState = { user: null, loading: true, error: null };
+const serverSnapshot: SessionState = { user: null, loading: true, error: null };
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -58,7 +59,7 @@ export const sessionStore = {
     return state;
   },
   getServerSnapshot(): SessionState {
-    return { user: null, loading: true, error: null };
+    return serverSnapshot;
   },
   async refresh() {
     try {
