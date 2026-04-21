@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -8,8 +8,9 @@ import {
   Star,
   Share2,
   TrendingUp,
+  Loader2,
 } from "lucide-react";
-import { featuredMatches, liveMatches, upcomingMatches } from "@/lib/data";
+import { Match } from "@/lib/data";
 import MatchCard from "@/components/MatchCard";
 
 const additionalMarkets = [
@@ -23,8 +24,37 @@ const additionalMarkets = [
 
 export default function MatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const allMatches = [...liveMatches, ...featuredMatches, ...upcomingMatches];
-  const match = allMatches.find((m) => m.id === id) || allMatches[0];
+  const [match, setMatch] = useState<Match | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/matches/${id}`)
+      .then((r) => {
+        if (!r.ok) throw new Error("Match not found");
+        return r.json();
+      })
+      .then((data) => setMatch(data.match))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#00d46e]" />
+      </div>
+    );
+  }
+
+  if (error || !match) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <p className="text-[#5a6485]">{error || "Match not found"}</p>
+        <Link href="/sports" className="text-[#00d46e] text-sm underline">Back to Sports</Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">

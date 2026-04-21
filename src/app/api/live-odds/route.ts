@@ -1,20 +1,26 @@
-import { liveMatches as allMatches, featuredMatches, upcomingMatches } from "@/lib/data";
+import { fetchLiveMatches } from "@/lib/oddsapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SSE_INTERVAL_MS = 5_000;
-const SSE_MAX_DURATION_MS = 5 * 60 * 1_000; // 5 minutes
+const SSE_INTERVAL_MS = 30_000;          // Poll every 30 seconds (conserves API credits)
+const SSE_MAX_DURATION_MS = 10 * 60 * 1_000; // Close after 10 minutes, client reconnects
 
+/**
+ * GET /api/live-odds
+ *
+ * Server-Sent Events stream that pushes real live match updates from
+ * The Odds API every 30 seconds. Clients reconnect automatically via
+ * the EventSource API.
+ */
 export async function GET() {
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
-    start(controller) {
-      const matches = [...allMatches, ...featuredMatches, ...upcomingMatches];
-      const liveMatches = matches.filter((m) => m.isLive);
-
+    async start(controller) {
       let closed = false;
+      let interval: ReturnType<typeof setInterval>;
+      let timeout: ReturnType<typeof setTimeout>;
 
       const enqueue = (data: string) => {
         if (closed) return;
@@ -25,57 +31,50 @@ export async function GET() {
         }
       };
 
-      const send = () => {
-        const updates = liveMatches.map((m) => {
-          const fluctuation = () => +(Math.random() * 0.2 - 0.1).toFixed(2);
-          return {
-            id: m.id,
-            odds: {
-              home: Math.max(1.01, m.odds.home + fluctuation()),
-              draw: m.odds.draw
-                ? Math.max(1.01, m.odds.draw + fluctuation())
-                : undefined,
-              away: Math.max(1.01, m.odds.away + fluctuation()),
-            },
-            score:
-              m.homeScore != null && m.awayScore != null
-                ? `${m.homeScore}-${m.awayScore}`
-                : undefined,
-            minute: m.minute
-              ? Math.min(90, m.minute + Math.floor(Math.random() * 3))
-              : undefined,
-            timestamp: Date.now(),
-          };
-        });
-
-        enqueue(`data: ${JSON.stringify(updates)}\n\n`);
-      };
-
-      const interval = setInterval(send, SSE_INTERVAL_MS);
-      const timeout = setTimeout(() => cleanup(), SSE_MAX_DURATION_MS);
-
       const cleanup = () => {
         if (closed) return;
         closed = true;
         clearInterval(interval);
         clearTimeout(timeout);
+        try { controller.close(); } catch { /* already closed */ }
+      };
+
+      const send = async () => {
         try {
-          controller.close();
-        } catch {
-          // Already closed
+          const liveMatches = await fetchLiveMatches();
+          const updates = liveMatches.map((m) => ({
+            id: m.id,
+            homeTeam: m.homeTeam,
+            awayTeam: m.awayTeam,
+            league: m.league,
+            sport: m.sport,
+            odds: m.odds,
+            score:
+              m.homeScore != null && m.awayScore != null
+                ? `${m.homeScore}-${m.awayScore}`
+                : undefined,
+            minute: m.minute,
+            isLive: m.isLive,
+            timestamp: Date.now(),
+          }));
+          enqueue(`data: ${JSON.stringify(updates)}\n\n`);
+        } catch (err) {
+          console.error("[live-odds SSE] fetch error:", err);
+          enqueue(`data: []\n\n`);
         }
       };
 
       // Send initial payload immediately
-      send();
+      await send();
 
-      // Return cleanup function for cancel
+      interval = setInterval(send, SSE_INTERVAL_MS);
+      timeout = setTimeout(cleanup, SSE_MAX_DURATION_MS);
+
       return cleanup;
     },
 
     cancel() {
-      // Called when the client disconnects — intervals/timeouts are cleaned up
-      // via the closure returned from start()
+      // Client disconnected — cleanup handled via closure above
     },
   });
 

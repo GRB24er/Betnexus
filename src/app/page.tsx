@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from "react";
 
 import {
   Zap,
@@ -14,14 +15,28 @@ import {
 import Link from "next/link";
 import MatchCard from "@/components/MatchCard";
 import {
-  featuredMatches,
-  liveMatches,
   promotions,
   virtualGames,
   casinoGames,
+  Match,
 } from "@/lib/data";
 
 export default function HomePage() {
+  const [liveMatches, setLiveMatches] = useState<Match[]>([]);
+  const [featuredMatches, setFeaturedMatches] = useState<Match[]>([]);
+  const [loadingMatches, setLoadingMatches] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/matches?type=all")
+      .then((r) => r.json())
+      .then((data) => {
+        setLiveMatches((data.live || []).slice(0, 6));
+        setFeaturedMatches((data.upcoming || []).slice(0, 6));
+      })
+      .catch(console.error)
+      .finally(() => setLoadingMatches(false));
+  }, []);
+
   return (
     <div className="min-h-screen">
       {/* Hero Banner */}
@@ -70,7 +85,7 @@ export default function HomePage() {
             <span className="w-2 h-2 bg-[#ff4757] rounded-full live-pulse" />
             <h2 className="text-lg font-bold text-white">Live Now</h2>
             <span className="text-xs text-[#5a6485] bg-[#1c2033] px-2 py-0.5 rounded-full">
-              {liveMatches.length} events
+              {liveMatches.length || "—"} events
             </span>
           </div>
           <Link
@@ -81,11 +96,16 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="flex gap-2.5 sm:gap-3 overflow-x-auto pb-2 snap-x snap-mandatory -mx-4 px-4 lg:mx-0 lg:px-0 scrollbar-hide">
-          {liveMatches.slice(0, 6).map((match) => (
-            <div key={match.id} className="min-w-[250px] sm:min-w-[280px] snap-start">
-              <MatchCard match={match} variant="featured" />
-            </div>
-          ))}
+          {loadingMatches
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="min-w-[250px] sm:min-w-[280px] snap-start bg-[#1c2033] border border-[#2a3050] rounded-xl h-40 animate-pulse" />
+              ))
+            : liveMatches.slice(0, 6).map((match) => (
+                <div key={match.id} className="min-w-[250px] sm:min-w-[280px] snap-start">
+                  <MatchCard match={match} variant="featured" />
+                </div>
+              ))
+          }
         </div>
       </section>
 
@@ -104,9 +124,14 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-          {featuredMatches.map((match) => (
-            <MatchCard key={match.id} match={match} />
-          ))}
+          {loadingMatches
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-[#1c2033] border border-[#2a3050] rounded-xl h-32 animate-pulse" />
+              ))
+            : featuredMatches.map((match) => (
+                <MatchCard key={match.id} match={match} />
+              ))
+          }
         </div>
       </section>
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { liveMatches, featuredMatches, upcomingMatches } from "@/lib/data";
+import { fetchAllMatches, fetchLiveMatches } from "@/lib/oddsapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,22 +10,39 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ results: [] });
   }
 
-  const allMatches = [...liveMatches, ...featuredMatches, ...upcomingMatches];
-  const results = allMatches
-    .filter((m) => {
-      const searchable = `${m.homeTeam} ${m.awayTeam} ${m.league} ${m.sport}`.toLowerCase();
-      return searchable.includes(q);
-    })
-    .slice(0, 20)
-    .map((m) => ({
-      id: m.id,
-      home: m.homeTeam,
-      away: m.awayTeam,
-      league: m.league,
-      sport: m.sport,
-      time: m.time,
-      isLive: m.isLive,
-    }));
+  try {
+    const [liveMatches, upcomingMatches] = await Promise.all([
+      fetchLiveMatches(),
+      fetchAllMatches(),
+    ]);
 
-  return NextResponse.json({ results, total: results.length });
+    const allMatches = [...liveMatches, ...upcomingMatches];
+    const seen = new Set<string>();
+    const unique = allMatches.filter((m) => {
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    });
+
+    const results = unique
+      .filter((m) => {
+        const searchable = `${m.homeTeam} ${m.awayTeam} ${m.league} ${m.sport}`.toLowerCase();
+        return searchable.includes(q);
+      })
+      .slice(0, 20)
+      .map((m) => ({
+        id: m.id,
+        home: m.homeTeam,
+        away: m.awayTeam,
+        league: m.league,
+        sport: m.sport,
+        time: m.time,
+        isLive: m.isLive,
+      }));
+
+    return NextResponse.json({ results, total: results.length });
+  } catch (err) {
+    console.error("[api/search]", err);
+    return NextResponse.json({ results: [], error: "Search unavailable" });
+  }
 }
