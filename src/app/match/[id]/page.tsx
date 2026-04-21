@@ -423,6 +423,9 @@ function MarketRow({
   );
 
   const outcomeCount = market.outcomes.length;
+  // Correct Score (28+), Multi-Goal (11+) → compact 3-col grid
+  // HT/FT (9), Result & BTTS (6) → 3-col
+  // Standard 2-way → 2-col, 3-way → 3-col
   const gridClass =
     outcomeCount === 2
       ? "grid-cols-2"
@@ -430,7 +433,11 @@ function MarketRow({
       ? "grid-cols-3"
       : outcomeCount <= 4
       ? "grid-cols-2 sm:grid-cols-4"
-      : "grid-cols-2 sm:grid-cols-3";
+      : outcomeCount <= 6
+      ? "grid-cols-2 sm:grid-cols-3"
+      : outcomeCount <= 9
+      ? "grid-cols-3"
+      : "grid-cols-3 sm:grid-cols-4";
 
   return (
     <div className="bg-[#161925] border border-[#1e2338] rounded-lg overflow-hidden">

@@ -14,9 +14,16 @@ import {
   ArrowLeft,
   Zap,
   Lock,
+  Copy,
+  Clock,
+  ExternalLink,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { sessionStore, useSession } from "@/store/session";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Payment Methods — with real brand colors
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 const paymentMethods = [
   {
@@ -24,10 +31,12 @@ const paymentMethods = [
     name: "MTN Mobile Money",
     shortName: "MTN MoMo",
     icon: "📱",
-    color: "from-yellow-500 to-yellow-600",
-    borderColor: "border-yellow-500/30",
-    bgColor: "bg-yellow-500/10",
-    textColor: "text-yellow-500",
+    // MTN brand yellow
+    brandColor: "#FFCB05",
+    brandBg: "rgba(255, 203, 5, 0.12)",
+    brandBorder: "rgba(255, 203, 5, 0.3)",
+    brandText: "#FFCB05",
+    brandGradient: "linear-gradient(135deg, #FFCB05, #F5A623)",
     description: "Pay with your MTN Mobile Money wallet",
     minDeposit: 1,
     maxDeposit: 50000,
@@ -40,10 +49,12 @@ const paymentMethods = [
     name: "Telecel Cash",
     shortName: "Telecel",
     icon: "📲",
-    color: "from-red-500 to-red-600",
-    borderColor: "border-red-500/30",
-    bgColor: "bg-red-500/10",
-    textColor: "text-red-500",
+    // Telecel brand red
+    brandColor: "#E30613",
+    brandBg: "rgba(227, 6, 19, 0.12)",
+    brandBorder: "rgba(227, 6, 19, 0.3)",
+    brandText: "#E30613",
+    brandGradient: "linear-gradient(135deg, #E30613, #C70510)",
     description: "Pay with your Telecel Cash wallet",
     minDeposit: 1,
     maxDeposit: 50000,
@@ -56,10 +67,12 @@ const paymentMethods = [
     name: "Bitcoin",
     shortName: "BTC",
     icon: "₿",
-    color: "from-orange-500 to-amber-600",
-    borderColor: "border-orange-500/30",
-    bgColor: "bg-orange-500/10",
-    textColor: "text-orange-500",
+    // Bitcoin brand orange
+    brandColor: "#F7931A",
+    brandBg: "rgba(247, 147, 26, 0.12)",
+    brandBorder: "rgba(247, 147, 26, 0.3)",
+    brandText: "#F7931A",
+    brandGradient: "linear-gradient(135deg, #F7931A, #E8850F)",
     description: "Deposit using Bitcoin",
     minDeposit: 0.0001,
     maxDeposit: 10,
@@ -72,10 +85,12 @@ const paymentMethods = [
     name: "Tether (USDT)",
     shortName: "USDT",
     icon: "💲",
-    color: "from-green-500 to-emerald-600",
-    borderColor: "border-green-500/30",
-    bgColor: "bg-green-500/10",
-    textColor: "text-green-500",
+    // Tether brand green
+    brandColor: "#26A17B",
+    brandBg: "rgba(38, 161, 123, 0.12)",
+    brandBorder: "rgba(38, 161, 123, 0.3)",
+    brandText: "#26A17B",
+    brandGradient: "linear-gradient(135deg, #26A17B, #1E8A68)",
     description: "Deposit using USDT (TRC-20)",
     minDeposit: 5,
     maxDeposit: 100000,
@@ -96,16 +111,19 @@ export default function DepositPage() {
   const [phone, setPhone] = useState("");
   const [cryptoAddress, setCryptoAddress] = useState("");
   const [step, setStep] = useState<
-    "method" | "amount" | "confirm" | "processing" | "success" | "failed"
+    "method" | "amount" | "confirm" | "processing" | "success" | "failed" | "btc_pending"
   >("method");
   const [promoCode, setPromoCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [reference, setReference] = useState<string | null>(null);
+  const [btcDepositAddress, setBtcDepositAddress] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const method = paymentMethods.find((m) => m.id === selectedMethod);
   const isMobileMoney =
     selectedMethod === "mtn_momo" || selectedMethod === "telecel_cash";
   const isCrypto = selectedMethod === "btc" || selectedMethod === "usdt_trc20";
+  const isBtc = selectedMethod === "btc";
 
   // Verify return-from-Paystack callback
   useEffect(() => {
@@ -146,8 +164,28 @@ export default function DepositPage() {
     setError(null);
     if (!amount || parseFloat(amount) <= 0) return;
     if (isMobileMoney && !phone) return;
-    if (isCrypto && !cryptoAddress) return;
+    // BTC doesn't need a crypto address input — we show our address
+    if (selectedMethod === "usdt_trc20" && !cryptoAddress) return;
     setStep("confirm");
+  };
+
+  const handleCopyAddress = async () => {
+    if (!btcDepositAddress) return;
+    try {
+      await navigator.clipboard.writeText(btcDepositAddress);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback
+      const el = document.createElement("textarea");
+      el.value = btcDepositAddress;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const handleConfirmPayment = async () => {
@@ -161,15 +199,29 @@ export default function DepositPage() {
     try {
       const res = await api.post<{
         reference: string;
-        authorization_url: string;
+        authorization_url?: string;
+        depositAddress?: string;
+        manualVerification?: boolean;
       }>("/api/paystack/initialize", {
         amount: parseFloat(amount),
         method: selectedMethod,
         accountNumber: isMobileMoney ? phone : undefined,
         cryptoAddress: isCrypto ? cryptoAddress : undefined,
       });
+
       setReference(res.reference);
-      window.location.href = res.authorization_url;
+
+      // BTC manual deposit — show wallet address
+      if (res.depositAddress && res.manualVerification) {
+        setBtcDepositAddress(res.depositAddress);
+        setStep("btc_pending");
+        return;
+      }
+
+      // Paystack redirect for all other methods
+      if (res.authorization_url) {
+        window.location.href = res.authorization_url;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Payment failed");
       setStep("failed");
@@ -191,7 +243,7 @@ export default function DepositPage() {
             <div>
               <h1 className="text-xl font-bold text-white">Deposit Funds</h1>
               <p className="text-xs text-[#8b95b8]">
-                Secure payments powered by Paystack
+                Secure &amp; fast payments
               </p>
             </div>
           </div>
@@ -213,57 +265,59 @@ export default function DepositPage() {
         )}
 
         {/* Progress Steps */}
-        <div className="flex items-center gap-2 mb-8">
-          {["Payment Method", "Amount", "Confirm"].map((label, i) => {
-            const stepIndex = ["method", "amount", "confirm"].indexOf(step);
-            const isActive = i <= stepIndex;
-            const isCurrent = i === stepIndex;
-            return (
-              <div key={label} className="flex items-center gap-2 flex-1">
-                <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                    isActive
-                      ? "bg-[#00d46e] text-white"
-                      : "bg-[#2a3050] text-[#5a6485]"
-                  }`}
-                >
-                  {i + 1}
-                </div>
-                <span
-                  className={`text-xs font-medium hidden sm:block ${
-                    isCurrent ? "text-white" : "text-[#5a6485]"
-                  }`}
-                >
-                  {label}
-                </span>
-                {i < 2 && (
+        {step !== "btc_pending" && (
+          <div className="flex items-center gap-2 mb-8">
+            {["Payment Method", "Amount", "Confirm"].map((label, i) => {
+              const stepIndex = ["method", "amount", "confirm"].indexOf(step);
+              const isActive = i <= stepIndex;
+              const isCurrent = i === stepIndex;
+              return (
+                <div key={label} className="flex items-center gap-2 flex-1">
                   <div
-                    className={`flex-1 h-0.5 rounded ${
-                      isActive && i < stepIndex
-                        ? "bg-[#00d46e]"
-                        : "bg-[#2a3050]"
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      isActive
+                        ? "bg-[#00d46e] text-white"
+                        : "bg-[#2a3050] text-[#5a6485]"
                     }`}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  >
+                    {i + 1}
+                  </div>
+                  <span
+                    className={`text-xs font-medium hidden sm:block ${
+                      isCurrent ? "text-white" : "text-[#5a6485]"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                  {i < 2 && (
+                    <div
+                      className={`flex-1 h-0.5 rounded ${
+                        isActive && i < stepIndex
+                          ? "bg-[#00d46e]"
+                          : "bg-[#2a3050]"
+                      }`}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-        {/* Step 1: Select Payment Method */}
+        {/* ═══ Step 1: Select Payment Method ═══ */}
         {step === "method" && (
           <div>
             <h2 className="text-base font-bold text-white mb-1">
               Choose Payment Method
             </h2>
             <p className="text-xs text-[#5a6485] mb-5">
-              All transactions are secured and encrypted via Paystack
+              Select your preferred deposit method
             </p>
 
             {/* Mobile Money Section */}
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <Smartphone className="w-4 h-4 text-[#ffc107]" />
+                <Smartphone className="w-4 h-4 text-[#FFCB05]" />
                 <h3 className="text-sm font-semibold text-white">
                   Mobile Money
                 </h3>
@@ -275,30 +329,46 @@ export default function DepositPage() {
                     <button
                       key={m.id}
                       onClick={() => handleSelectMethod(m.id)}
-                      className={`bg-[#1c2033] border border-[#2a3050] rounded-xl p-4 text-left hover:border-[#00d46e]/30 transition-all group`}
+                      className="bg-[#1c2033] border rounded-xl p-4 text-left transition-all group hover:scale-[1.02]"
+                      style={{ borderColor: m.brandBorder }}
                     >
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-3 mb-2.5">
                         <div
-                          className={`w-10 h-10 ${m.bgColor} rounded-lg flex items-center justify-center`}
+                          className="w-11 h-11 rounded-xl flex items-center justify-center border"
+                          style={{
+                            background: m.brandBg,
+                            borderColor: m.brandBorder,
+                          }}
                         >
-                          <span className="text-xl">{m.icon}</span>
+                          <span className="text-xl font-bold" style={{ color: m.brandColor }}>
+                            {m.id === "mtn_momo" ? "M" : "T"}
+                          </span>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-white group-hover:text-[#00d46e] transition-colors">
+                        <div className="flex-1">
+                          <p className="text-sm font-bold transition-colors" style={{ color: m.brandColor }}>
                             {m.name}
                           </p>
                           <p className="text-[11px] text-[#5a6485]">
                             {m.description}
                           </p>
                         </div>
+                        <ChevronRight className="w-4 h-4 text-[#5a6485] group-hover:translate-x-0.5 transition-transform" />
                       </div>
                       <div className="flex items-center gap-4 text-[10px] text-[#5a6485]">
+                        <span className="flex items-center gap-1">
+                          <Zap className="w-3 h-3" style={{ color: m.brandColor }} />
+                          {m.time}
+                        </span>
                         <span>Fee: {m.fee}</span>
-                        <span>Time: {m.time}</span>
                         <span>
                           Min: {m.currency} {m.minDeposit}
                         </span>
                       </div>
+                      {/* Brand accent bar */}
+                      <div
+                        className="absolute bottom-0 left-0 right-0 h-[2px] rounded-b-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ background: m.brandGradient }}
+                      />
                     </button>
                   ))}
               </div>
@@ -307,38 +377,49 @@ export default function DepositPage() {
             {/* Crypto Section */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <Bitcoin className="w-4 h-4 text-[#ff6b35]" />
+                <Bitcoin className="w-4 h-4 text-[#F7931A]" />
                 <h3 className="text-sm font-semibold text-white">
                   Cryptocurrency
                 </h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {paymentMethods
-                  .filter((m) => m.id === "btc" || m.id === "usdt")
+                  .filter((m) => m.id === "btc" || m.id === "usdt_trc20")
                   .map((m) => (
                     <button
                       key={m.id}
                       onClick={() => handleSelectMethod(m.id)}
-                      className={`bg-[#1c2033] border border-[#2a3050] rounded-xl p-4 text-left hover:border-[#00d46e]/30 transition-all group`}
+                      className="bg-[#1c2033] border rounded-xl p-4 text-left transition-all group hover:scale-[1.02]"
+                      style={{ borderColor: m.brandBorder }}
                     >
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-3 mb-2.5">
                         <div
-                          className={`w-10 h-10 ${m.bgColor} rounded-lg flex items-center justify-center`}
+                          className="w-11 h-11 rounded-xl flex items-center justify-center border"
+                          style={{
+                            background: m.brandBg,
+                            borderColor: m.brandBorder,
+                          }}
                         >
-                          <span className="text-xl">{m.icon}</span>
+                          <span className="text-xl font-bold" style={{ color: m.brandColor }}>
+                            {m.icon}
+                          </span>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-white group-hover:text-[#00d46e] transition-colors">
+                        <div className="flex-1">
+                          <p className="text-sm font-bold transition-colors" style={{ color: m.brandColor }}>
                             {m.name}
                           </p>
                           <p className="text-[11px] text-[#5a6485]">
                             {m.description}
                           </p>
                         </div>
+                        <ChevronRight className="w-4 h-4 text-[#5a6485] group-hover:translate-x-0.5 transition-transform" />
                       </div>
                       <div className="flex items-center gap-4 text-[10px] text-[#5a6485]">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" style={{ color: m.brandColor }} />
+                          {m.time}
+                        </span>
                         <span>Fee: {m.fee}</span>
-                        <span>Time: {m.time}</span>
                         <span>
                           Min: {m.minDeposit} {m.currency}
                         </span>
@@ -353,19 +434,18 @@ export default function DepositPage() {
               <Shield className="w-5 h-5 text-[#00d46e] shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-semibold text-white mb-0.5">
-                  Secured by Paystack
+                  Secure Payments
                 </p>
                 <p className="text-[11px] text-[#5a6485]">
-                  All payments are processed through Paystack&apos;s PCI-DSS Level 1
-                  compliant infrastructure. Your financial data is encrypted
-                  end-to-end.
+                  Mobile Money payments are processed through Paystack&apos;s PCI-DSS Level 1
+                  compliant infrastructure. Crypto deposits are verified manually for your security.
                 </p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Step 2: Enter Amount */}
+        {/* ═══ Step 2: Enter Amount ═══ */}
         {step === "amount" && method && (
           <div>
             <button
@@ -375,12 +455,29 @@ export default function DepositPage() {
               <ArrowLeft className="w-3 h-3" /> Back to methods
             </button>
 
-            <div className="flex items-center gap-3 mb-6 bg-[#1c2033] border border-[#2a3050] rounded-lg p-3">
-              <div className={`w-8 h-8 ${method.bgColor} rounded-lg flex items-center justify-center`}>
-                <span className="text-lg">{method.icon}</span>
+            {/* Selected Method Card */}
+            <div
+              className="flex items-center gap-3 mb-6 border rounded-lg p-3"
+              style={{
+                background: method.brandBg,
+                borderColor: method.brandBorder,
+              }}
+            >
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center border"
+                style={{
+                  background: method.brandBg,
+                  borderColor: method.brandBorder,
+                }}
+              >
+                <span className="text-lg font-bold" style={{ color: method.brandColor }}>
+                  {method.id === "mtn_momo" ? "M" : method.id === "telecel_cash" ? "T" : method.icon}
+                </span>
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">{method.name}</p>
+                <p className="text-sm font-semibold" style={{ color: method.brandColor }}>
+                  {method.name}
+                </p>
                 <p className="text-[11px] text-[#5a6485]">
                   {method.fee} fee &bull; {method.time}
                 </p>
@@ -459,48 +556,44 @@ export default function DepositPage() {
               </div>
             )}
 
-            {/* Crypto Address Input */}
-            {isCrypto && (
+            {/* USDT Address Input (only for USDT, not BTC) */}
+            {selectedMethod === "usdt_trc20" && (
               <div className="mb-5">
                 <label className="text-xs font-medium text-[#8b95b8] mb-2 block">
-                  Your {method.shortName} Wallet Address (for refunds)
+                  Your USDT Wallet Address (for refunds)
                 </label>
                 <input
                   type="text"
                   value={cryptoAddress}
                   onChange={(e) => setCryptoAddress(e.target.value)}
-                  placeholder={
-                    selectedMethod === "btc"
-                      ? "bc1q..."
-                      : "TRC-20 address (T...)"
-                  }
+                  placeholder="TRC-20 address (T...)"
                   className="w-full bg-[#0f1118] border border-[#2a3050] rounded-xl px-4 py-3 text-xs font-mono text-white placeholder-[#5a6485] focus:outline-none focus:border-[#00d46e]/50 focus:ring-1 focus:ring-[#00d46e]/20 transition-all"
                 />
               </div>
             )}
 
-            {/* Crypto Info */}
-            {isCrypto && (
-              <div className="mb-5 bg-[#1c2033] border border-[#2a3050] rounded-xl p-4">
-                <p className="text-xs font-semibold text-white mb-2">
-                  How it works
+            {/* BTC Info */}
+            {isBtc && (
+              <div className="mb-5 border rounded-xl p-4" style={{ background: "rgba(247, 147, 26, 0.06)", borderColor: "rgba(247, 147, 26, 0.2)" }}>
+                <p className="text-xs font-semibold mb-2" style={{ color: "#F7931A" }}>
+                  How Bitcoin Deposit Works
                 </p>
                 <div className="space-y-2">
                   <div className="flex items-start gap-2">
-                    <span className="text-[10px] bg-[#00d46e] text-white rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">1</span>
+                    <span className="text-[10px] text-white rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5" style={{ background: "#F7931A" }}>1</span>
                     <p className="text-[11px] text-[#8b95b8]">Confirm the amount and proceed</p>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-[10px] bg-[#00d46e] text-white rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">2</span>
-                    <p className="text-[11px] text-[#8b95b8]">You&apos;ll receive a unique wallet address</p>
+                    <span className="text-[10px] text-white rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5" style={{ background: "#F7931A" }}>2</span>
+                    <p className="text-[11px] text-[#8b95b8]">You&apos;ll see our BTC wallet address</p>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-[10px] bg-[#00d46e] text-white rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">3</span>
-                    <p className="text-[11px] text-[#8b95b8]">Send the exact amount to the address</p>
+                    <span className="text-[10px] text-white rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5" style={{ background: "#F7931A" }}>3</span>
+                    <p className="text-[11px] text-[#8b95b8]">Send the exact BTC amount to the address</p>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-[10px] bg-[#00d46e] text-white rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">4</span>
-                    <p className="text-[11px] text-[#8b95b8]">Funds credited after network confirmation</p>
+                    <span className="text-[10px] text-white rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5" style={{ background: "#F7931A" }}>4</span>
+                    <p className="text-[11px] text-[#8b95b8]">Funds credited after we confirm the transaction</p>
                   </div>
                 </div>
               </div>
@@ -537,7 +630,7 @@ export default function DepositPage() {
                 !amount ||
                 parseFloat(amount) <= 0 ||
                 (isMobileMoney && !phone) ||
-                (isCrypto && !cryptoAddress)
+                (selectedMethod === "usdt_trc20" && !cryptoAddress)
               }
               className="w-full gradient-green text-white font-bold text-sm py-3.5 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
@@ -546,7 +639,7 @@ export default function DepositPage() {
           </div>
         )}
 
-        {/* Step 3: Confirm */}
+        {/* ═══ Step 3: Confirm ═══ */}
         {step === "confirm" && method && (
           <div>
             <button
@@ -564,7 +657,9 @@ export default function DepositPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-[#5a6485]">Method</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm">{method.icon}</span>
+                    <span className="text-sm font-bold" style={{ color: method.brandColor }}>
+                      {method.id === "mtn_momo" ? "M" : method.id === "telecel_cash" ? "T" : method.icon}
+                    </span>
                     <span className="text-sm font-semibold text-white">{method.name}</span>
                   </div>
                 </div>
@@ -582,7 +677,7 @@ export default function DepositPage() {
                 )}
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-[#5a6485]">Fee</span>
-                  <span className="text-sm text-[#00d46e] font-medium">{method.fee}</span>
+                  <span className="text-sm font-medium" style={{ color: method.brandColor }}>{method.fee}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-[#5a6485]">Processing Time</span>
@@ -597,7 +692,7 @@ export default function DepositPage() {
                 <div className="flex items-center justify-between pt-3 border-t border-[#2a3050]">
                   <span className="text-xs font-semibold text-white">You will receive</span>
                   <span className="text-xl font-bold text-[#00d46e]">
-                    ${parseFloat(amount || "0").toFixed(2)}
+                    {isCrypto ? `${amount} ${method.currency}` : `GHS ${parseFloat(amount || "0").toFixed(2)}`}
                   </span>
                 </div>
               </div>
@@ -608,23 +703,148 @@ export default function DepositPage() {
               <span>
                 By proceeding, you confirm this deposit and agree to the{" "}
                 <Link href="/help" className="text-[#3b82f6] hover:underline">Terms of Service</Link>.
-                Payments processed by Paystack.
+                {isBtc
+                  ? " BTC deposits are verified manually."
+                  : " Payments processed by Paystack."}
               </span>
             </div>
 
             <button
               onClick={handleConfirmPayment}
-              className="w-full gradient-green text-white font-bold text-sm py-3.5 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+              className="w-full font-bold text-sm py-3.5 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-white"
+              style={{ background: method.brandGradient }}
             >
               <Lock className="w-4 h-4" />
               {isMobileMoney
                 ? `Pay GHS ${amount} via ${method.shortName}`
+                : isBtc
+                ? `Deposit ${amount} BTC`
                 : `Deposit ${amount} ${method.currency}`}
             </button>
           </div>
         )}
 
-        {/* Processing */}
+        {/* ═══ BTC Pending — Show Wallet Address ═══ */}
+        {step === "btc_pending" && btcDepositAddress && (
+          <div>
+            <div className="text-center mb-6">
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border-2"
+                style={{
+                  background: "rgba(247, 147, 26, 0.15)",
+                  borderColor: "rgba(247, 147, 26, 0.4)",
+                }}
+              >
+                <Bitcoin className="w-8 h-8" style={{ color: "#F7931A" }} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-1">Send Bitcoin</h3>
+              <p className="text-sm text-[#8b95b8]">
+                Send exactly <span className="font-bold text-white">{amount} BTC</span> to the address below
+              </p>
+            </div>
+
+            {/* Wallet Address Card */}
+            <div
+              className="border rounded-xl overflow-hidden mb-4"
+              style={{
+                background: "rgba(247, 147, 26, 0.06)",
+                borderColor: "rgba(247, 147, 26, 0.25)",
+              }}
+            >
+              <div className="px-4 py-3 border-b" style={{ borderColor: "rgba(247, 147, 26, 0.15)" }}>
+                <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#F7931A" }}>
+                  BTC Deposit Address
+                </p>
+              </div>
+              <div className="p-4">
+                {/* QR Code placeholder using a styled box */}
+                <div className="w-40 h-40 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=bitcoin:${btcDepositAddress}?amount=${amount}`}
+                    alt="BTC QR Code"
+                    className="w-full h-full rounded"
+                    width={150}
+                    height={150}
+                  />
+                </div>
+
+                {/* Address */}
+                <div className="bg-[#0f1118] border border-[#2a3050] rounded-lg p-3 flex items-center gap-2">
+                  <code className="text-xs font-mono text-white flex-1 break-all leading-relaxed">
+                    {btcDepositAddress}
+                  </code>
+                  <button
+                    onClick={handleCopyAddress}
+                    className={`shrink-0 p-2 rounded-lg transition-all ${
+                      copied
+                        ? "bg-[#00d46e]/20 text-[#00d46e]"
+                        : "bg-[#1c2033] text-[#8b95b8] hover:text-white"
+                    }`}
+                  >
+                    {copied ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                {copied && (
+                  <p className="text-[10px] text-[#00d46e] text-center mt-1.5 font-medium">
+                    Address copied to clipboard!
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Important Notes */}
+            <div className="bg-[#1c2033] border border-[#2a3050] rounded-xl p-4 mb-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-[#ffc107] shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-[#ffc107] mb-1">Important</p>
+                  <ul className="text-[11px] text-[#8b95b8] space-y-1.5">
+                    <li>Send exactly <span className="text-white font-semibold">{amount} BTC</span> to the address above</li>
+                    <li>Only send <span className="text-white font-semibold">Bitcoin (BTC)</span> to this address</li>
+                    <li>Sending any other cryptocurrency will result in permanent loss</li>
+                    <li>Your deposit will be credited after network confirmation</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Transaction Reference */}
+            <div className="bg-[#1c2033] border border-[#2a3050] rounded-xl p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-[#5a6485] uppercase tracking-wider mb-0.5">Transaction Reference</p>
+                  <p className="text-xs font-mono text-white">{reference}</p>
+                </div>
+                <div className="flex items-center gap-1.5 bg-[#ffc107]/10 px-2.5 py-1 rounded-full">
+                  <Clock className="w-3 h-3 text-[#ffc107]" />
+                  <span className="text-[10px] font-bold text-[#ffc107]">PENDING</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Link
+                href="/sports"
+                className="flex-1 gradient-green text-white font-semibold text-sm py-3 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+              >
+                <Zap className="w-4 h-4" /> Continue Betting
+              </Link>
+              <Link
+                href="/account/history"
+                className="flex-1 bg-[#1c2033] border border-[#2a3050] text-[#8b95b8] font-medium text-sm py-3 rounded-xl hover:text-white transition-colors text-center flex items-center justify-center gap-2"
+              >
+                <ExternalLink className="w-4 h-4" /> View History
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ Processing ═══ */}
         {step === "processing" && (
           <div className="text-center py-12">
             <div className="w-16 h-16 border-4 border-[#2a3050] border-t-[#00d46e] rounded-full animate-spin mx-auto mb-6" />
@@ -635,7 +855,7 @@ export default function DepositPage() {
                 Approve the transaction to complete.
               </p>
             )}
-            {isCrypto && (
+            {isCrypto && !isBtc && (
               <p className="text-sm text-[#8b95b8] mb-4">
                 Waiting for network confirmation...<br />
                 This may take a few minutes.
@@ -644,13 +864,13 @@ export default function DepositPage() {
             <div className="bg-[#1c2033] border border-[#2a3050] rounded-lg p-4 max-w-xs mx-auto">
               <p className="text-[11px] text-[#5a6485]">Transaction Reference</p>
               <p className="text-xs font-mono text-white mt-1 break-all">
-                {reference || "—"}
+                {reference || "\u2014"}
               </p>
             </div>
           </div>
         )}
 
-        {/* Failed */}
+        {/* ═══ Failed ═══ */}
         {step === "failed" && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-[#ff4757]/20 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -673,7 +893,7 @@ export default function DepositPage() {
           </div>
         )}
 
-        {/* Success */}
+        {/* ═══ Success ═══ */}
         {step === "success" && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-[#00d46e]/20 rounded-full flex items-center justify-center mx-auto mb-6">

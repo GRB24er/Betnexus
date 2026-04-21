@@ -327,6 +327,8 @@ function processMarket(
 /**
  * Generate synthetic odds for markets not available from the API.
  * Uses the match's h2h odds to derive realistic synthetic odds.
+ * Covers: Corners, Bookings, Correct Score, HT/FT, First/Last Goal,
+ * Odd/Even, Exact Goals, Winning Margin, Multi-Goal, Clean Sheet, Result & BTTS.
  */
 function generateSyntheticMarkets(
   homeOdds: number,
@@ -341,24 +343,450 @@ function generateSyntheticMarkets(
   // Only generate synthetic markets for football/soccer
   if (sport !== "football") return categories;
 
-  // Helper: generate over/under odds with realistic margins
-  const genOU = (line: number, overBase: number): { over: number; under: number } => {
-    // Add a small random-ish variation based on the line to make it look real
-    const margin = 1.04 + (line % 3) * 0.01;
-    const over = +(overBase * margin).toFixed(2);
-    const under = +(((1 / (1 - 1 / over)) * 0.96)).toFixed(2);
-    return { over: Math.max(over, 1.05), under: Math.max(under, 1.05) };
+  // ─── Probability helpers ───────────────────────────────────────────────
+  const homeProb = 1 / homeOdds;
+  const drawProb = drawOdds > 0 ? 1 / drawOdds : 0.25;
+  const awayProb = 1 / awayOdds;
+  const totalProb = homeProb + drawProb + awayProb;
+  const hP = homeProb / totalProb;
+  const dP = drawProb / totalProb;
+  const aP = awayProb / totalProb;
+
+  // Expected goals per team (derived from odds)
+  const homeExpGoals = Math.max(0.5, 1.35 * (hP / (hP + aP)) * 2.5);
+  const awayExpGoals = Math.max(0.3, 1.35 * (aP / (hP + aP)) * 2.5);
+  const totalExpGoals = homeExpGoals + awayExpGoals;
+
+  // Poisson probability helper
+  const poisson = (k: number, lambda: number): number => {
+    let result = Math.exp(-lambda);
+    for (let i = 1; i <= k; i++) {
+      result *= lambda / i;
+    }
+    return result;
   };
 
-  // Derive attacking strength from odds (lower home odds = more dominant = more corners/cards likely)
+  // Odds from probability with margin
+  const toOdds = (prob: number, margin = 1.05): number => {
+    const clamped = Math.min(0.97, Math.max(0.01, prob));
+    return Math.max(1.05, +(1 / clamped * margin).toFixed(2));
+  };
+
   const homeFavStrength = 1 / homeOdds;
   const awayFavStrength = 1 / awayOdds;
   const matchIntensity = homeFavStrength + awayFavStrength;
 
-  // ─── Corners Market ────────────────────────────────────────────────────
+  // ═════════════════════════════════════════════════════════════════════════
+  // CORRECT SCORE
+  // ═════════════════════════════════════════════════════════════════════════
+  const correctScoreMarkets: ProcessedMarket[] = [];
+  const scores: [number, number][] = [
+    [0,0],[1,0],[0,1],[1,1],[2,0],[0,2],[2,1],[1,2],[2,2],
+    [3,0],[0,3],[3,1],[1,3],[3,2],[2,3],[4,0],[0,4],[4,1],[1,4],[4,2],[2,4],
+    [3,3],[4,3],[3,4],[5,0],[0,5],[5,1],[1,5],
+  ];
+
+  const csOutcomes: MarketOutcome[] = [];
+  let csOtherProb = 1;
+
+  for (const [h, a] of scores) {
+    const prob = poisson(h, homeExpGoals) * poisson(a, awayExpGoals);
+    csOtherProb -= prob;
+    csOutcomes.push({
+      name: `${h}-${a}`,
+      label: `${h} - ${a}`,
+      odds: toOdds(prob, 1.08),
+    });
+  }
+
+  // "Any Other" score
+  csOutcomes.push({
+    name: "Other",
+    label: "Any Other",
+    odds: toOdds(Math.max(0.01, csOtherProb), 1.08),
+  });
+
+  correctScoreMarkets.push({
+    key: "correct_score",
+    name: "Correct Score",
+    outcomes: csOutcomes,
+  });
+
+  categories.push({
+    id: "correctscore",
+    name: "Correct Score",
+    icon: "🎯",
+    markets: correctScoreMarkets,
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // HT/FT (Half Time / Full Time)
+  // ═════════════════════════════════════════════════════════════════════════
+  const htftMarkets: ProcessedMarket[] = [];
+
+  // HT probabilities (draws more likely at HT)
+  const htHomeP = hP * 0.7;
+  const htDrawP = 0.38 + dP * 0.15;
+  const htAwayP = 1 - htHomeP - htDrawP;
+
+  const htftCombos: { ht: string; ft: string; htLabel: string; ftLabel: string; prob: number }[] = [
+    { ht: "1", ft: "1", htLabel: homeTeam, ftLabel: homeTeam, prob: htHomeP * hP * 1.3 },
+    { ht: "1", ft: "X", htLabel: homeTeam, ftLabel: "Draw", prob: htHomeP * dP * 0.6 },
+    { ht: "1", ft: "2", htLabel: homeTeam, ftLabel: awayTeam, prob: htHomeP * aP * 0.3 },
+    { ht: "X", ft: "1", htLabel: "Draw", ftLabel: homeTeam, prob: htDrawP * hP * 0.8 },
+    { ht: "X", ft: "X", htLabel: "Draw", ftLabel: "Draw", prob: htDrawP * dP * 1.5 },
+    { ht: "X", ft: "2", htLabel: "Draw", ftLabel: awayTeam, prob: htDrawP * aP * 0.8 },
+    { ht: "2", ft: "1", htLabel: awayTeam, ftLabel: homeTeam, prob: htAwayP * hP * 0.3 },
+    { ht: "2", ft: "X", htLabel: awayTeam, ftLabel: "Draw", prob: htAwayP * dP * 0.6 },
+    { ht: "2", ft: "2", htLabel: awayTeam, ftLabel: awayTeam, prob: htAwayP * aP * 1.3 },
+  ];
+
+  // Normalise probabilities
+  const htftTotal = htftCombos.reduce((s, c) => s + c.prob, 0);
+  const htftOutcomes: MarketOutcome[] = htftCombos.map((c) => ({
+    name: `${c.ht}/${c.ft}`,
+    label: `${c.htLabel} / ${c.ftLabel}`,
+    odds: toOdds(c.prob / htftTotal, 1.1),
+  }));
+
+  htftMarkets.push({
+    key: "htft",
+    name: "Half Time / Full Time",
+    outcomes: htftOutcomes,
+  });
+
+  categories.push({
+    id: "htft",
+    name: "HT/FT",
+    icon: "⏰",
+    markets: htftMarkets,
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // SPECIALS — First Goal, Last Goal, Odd/Even, Exact Goals, Winning Margin,
+  //            Multi-Goal, Clean Sheet, Result & BTTS
+  // ═════════════════════════════════════════════════════════════════════════
+  const specialMarkets: ProcessedMarket[] = [];
+
+  // ─── First Goal Scorer (team) ──────────────────────────────────────────
+  const noGoalProb = poisson(0, homeExpGoals) * poisson(0, awayExpGoals);
+  const firstGoalHome = (homeExpGoals / totalExpGoals) * (1 - noGoalProb);
+  const firstGoalAway = (awayExpGoals / totalExpGoals) * (1 - noGoalProb);
+
+  specialMarkets.push({
+    key: "first_goal",
+    name: "First Goal",
+    outcomes: [
+      { name: homeTeam, label: homeTeam, odds: toOdds(firstGoalHome) },
+      { name: awayTeam, label: awayTeam, odds: toOdds(firstGoalAway) },
+      { name: "No Goal", label: "No Goal", odds: toOdds(noGoalProb) },
+    ],
+  });
+
+  // ─── Last Goal ─────────────────────────────────────────────────────────
+  specialMarkets.push({
+    key: "last_goal",
+    name: "Last Goal",
+    outcomes: [
+      { name: homeTeam, label: homeTeam, odds: toOdds(firstGoalHome * 0.98) },
+      { name: awayTeam, label: awayTeam, odds: toOdds(firstGoalAway * 0.98) },
+      { name: "No Goal", label: "No Goal", odds: toOdds(noGoalProb) },
+    ],
+  });
+
+  // ─── Odd/Even Total Goals ──────────────────────────────────────────────
+  let oddProb = 0;
+  let evenProb = 0;
+  for (let h = 0; h <= 8; h++) {
+    for (let a = 0; a <= 8; a++) {
+      const p = poisson(h, homeExpGoals) * poisson(a, awayExpGoals);
+      if ((h + a) % 2 === 0) evenProb += p;
+      else oddProb += p;
+    }
+  }
+  const oeTotal = oddProb + evenProb;
+
+  specialMarkets.push({
+    key: "odd_even",
+    name: "Odd/Even Total Goals",
+    outcomes: [
+      { name: "Odd", label: "Odd", odds: toOdds(oddProb / oeTotal) },
+      { name: "Even", label: "Even", odds: toOdds(evenProb / oeTotal) },
+    ],
+  });
+
+  // ─── Exact Total Goals ─────────────────────────────────────────────────
+  const exactGoalsOutcomes: MarketOutcome[] = [];
+  let exactRemaining = 1;
+  for (let g = 0; g <= 5; g++) {
+    let prob = 0;
+    for (let h = 0; h <= g; h++) {
+      prob += poisson(h, homeExpGoals) * poisson(g - h, awayExpGoals);
+    }
+    exactRemaining -= prob;
+    exactGoalsOutcomes.push({
+      name: `${g}`,
+      label: `Exactly ${g} Goals`,
+      odds: toOdds(prob, 1.06),
+    });
+  }
+  exactGoalsOutcomes.push({
+    name: "6+",
+    label: "6 or More Goals",
+    odds: toOdds(Math.max(0.005, exactRemaining), 1.06),
+  });
+
+  specialMarkets.push({
+    key: "exact_goals",
+    name: "Exact Total Goals",
+    outcomes: exactGoalsOutcomes,
+  });
+
+  // ─── Winning Margin ────────────────────────────────────────────────────
+  const marginOutcomes: { name: string; label: string; prob: number }[] = [
+    { name: "Home by 1", label: `${homeTeam} by 1`, prob: 0 },
+    { name: "Home by 2", label: `${homeTeam} by 2`, prob: 0 },
+    { name: "Home by 3+", label: `${homeTeam} by 3+`, prob: 0 },
+    { name: "Draw", label: "Draw", prob: 0 },
+    { name: "Away by 1", label: `${awayTeam} by 1`, prob: 0 },
+    { name: "Away by 2", label: `${awayTeam} by 2`, prob: 0 },
+    { name: "Away by 3+", label: `${awayTeam} by 3+`, prob: 0 },
+  ];
+
+  for (let h = 0; h <= 7; h++) {
+    for (let a = 0; a <= 7; a++) {
+      const p = poisson(h, homeExpGoals) * poisson(a, awayExpGoals);
+      const diff = h - a;
+      if (diff === 0) marginOutcomes[3].prob += p;
+      else if (diff === 1) marginOutcomes[0].prob += p;
+      else if (diff === 2) marginOutcomes[1].prob += p;
+      else if (diff >= 3) marginOutcomes[2].prob += p;
+      else if (diff === -1) marginOutcomes[4].prob += p;
+      else if (diff === -2) marginOutcomes[5].prob += p;
+      else if (diff <= -3) marginOutcomes[6].prob += p;
+    }
+  }
+
+  specialMarkets.push({
+    key: "winning_margin",
+    name: "Winning Margin",
+    outcomes: marginOutcomes.map((o) => ({
+      name: o.name,
+      label: o.label,
+      odds: toOdds(o.prob, 1.08),
+    })),
+  });
+
+  // ─── Multi-Goal (Goal Range) ───────────────────────────────────────────
+  const multiGoalRanges: [number, number, string][] = [
+    [1, 2, "1-2 Goals"], [1, 3, "1-3 Goals"], [1, 4, "1-4 Goals"],
+    [1, 5, "1-5 Goals"], [2, 3, "2-3 Goals"], [2, 4, "2-4 Goals"],
+    [2, 5, "2-5 Goals"], [2, 6, "2-6 Goals"], [3, 4, "3-4 Goals"],
+    [3, 5, "3-5 Goals"], [3, 6, "3-6 Goals"],
+  ];
+
+  const multiGoalOutcomes: MarketOutcome[] = multiGoalRanges.map(([lo, hi, label]) => {
+    let prob = 0;
+    for (let h = 0; h <= 8; h++) {
+      for (let a = 0; a <= 8; a++) {
+        const total = h + a;
+        if (total >= lo && total <= hi) {
+          prob += poisson(h, homeExpGoals) * poisson(a, awayExpGoals);
+        }
+      }
+    }
+    return { name: label, label, odds: toOdds(prob, 1.06) };
+  });
+
+  specialMarkets.push({
+    key: "multi_goal",
+    name: "Multi-Goal",
+    outcomes: multiGoalOutcomes,
+  });
+
+  // ─── Clean Sheet ───────────────────────────────────────────────────────
+  const homeCSProb = poisson(0, awayExpGoals); // away scores 0
+  const awayCSProb = poisson(0, homeExpGoals); // home scores 0
+
+  specialMarkets.push({
+    key: "home_clean_sheet",
+    name: `${homeTeam} Clean Sheet`,
+    outcomes: [
+      { name: "Yes", label: "Yes", odds: toOdds(homeCSProb) },
+      { name: "No", label: "No", odds: toOdds(1 - homeCSProb) },
+    ],
+  });
+
+  specialMarkets.push({
+    key: "away_clean_sheet",
+    name: `${awayTeam} Clean Sheet`,
+    outcomes: [
+      { name: "Yes", label: "Yes", odds: toOdds(awayCSProb) },
+      { name: "No", label: "No", odds: toOdds(1 - awayCSProb) },
+    ],
+  });
+
+  // ─── Result & Both Teams to Score ──────────────────────────────────────
+  const bttsProb = 1 - poisson(0, homeExpGoals) - poisson(0, awayExpGoals) + noGoalProb;
+  const noBttsProb = 1 - bttsProb;
+
+  const resultBttsOutcomes: MarketOutcome[] = [
+    { name: "Home & Yes", label: `${homeTeam} & BTTS Yes`, odds: toOdds(hP * bttsProb * 0.85, 1.1) },
+    { name: "Home & No", label: `${homeTeam} & BTTS No`, odds: toOdds(hP * noBttsProb * 1.1, 1.1) },
+    { name: "Draw & Yes", label: `Draw & BTTS Yes`, odds: toOdds(dP * bttsProb * 1.1, 1.1) },
+    { name: "Draw & No", label: `Draw & BTTS No`, odds: toOdds(dP * noBttsProb * 0.5, 1.1) },
+    { name: "Away & Yes", label: `${awayTeam} & BTTS Yes`, odds: toOdds(aP * bttsProb * 0.85, 1.1) },
+    { name: "Away & No", label: `${awayTeam} & BTTS No`, odds: toOdds(aP * noBttsProb * 1.1, 1.1) },
+  ];
+
+  specialMarkets.push({
+    key: "result_btts",
+    name: "Result & Both Teams to Score",
+    outcomes: resultBttsOutcomes,
+  });
+
+  // ─── Result & Over/Under 2.5 ──────────────────────────────────────────
+  const over25Prob = 1 - (() => {
+    let under = 0;
+    for (let h = 0; h <= 2; h++) {
+      for (let a = 0; a <= 2 - h; a++) {
+        under += poisson(h, homeExpGoals) * poisson(a, awayExpGoals);
+      }
+    }
+    return under;
+  })();
+  const under25Prob = 1 - over25Prob;
+
+  specialMarkets.push({
+    key: "result_ou25",
+    name: "Result & Over/Under 2.5",
+    outcomes: [
+      { name: "Home & Over", label: `${homeTeam} & Over 2.5`, odds: toOdds(hP * over25Prob * 0.9, 1.1) },
+      { name: "Home & Under", label: `${homeTeam} & Under 2.5`, odds: toOdds(hP * under25Prob * 1.05, 1.1) },
+      { name: "Draw & Over", label: `Draw & Over 2.5`, odds: toOdds(dP * over25Prob * 0.7, 1.1) },
+      { name: "Draw & Under", label: `Draw & Under 2.5`, odds: toOdds(dP * under25Prob * 1.3, 1.1) },
+      { name: "Away & Over", label: `${awayTeam} & Over 2.5`, odds: toOdds(aP * over25Prob * 0.9, 1.1) },
+      { name: "Away & Under", label: `${awayTeam} & Under 2.5`, odds: toOdds(aP * under25Prob * 1.05, 1.1) },
+    ],
+  });
+
+  // ─── Half Time Correct Score ───────────────────────────────────────────
+  const htHomeExp = homeExpGoals * 0.45;
+  const htAwayExp = awayExpGoals * 0.45;
+  const htScores: [number, number][] = [
+    [0,0],[1,0],[0,1],[1,1],[2,0],[0,2],[2,1],[1,2],[2,2],[3,0],[0,3],
+  ];
+
+  const htCSOutcomes: MarketOutcome[] = [];
+  let htCSRemaining = 1;
+  for (const [h, a] of htScores) {
+    const prob = poisson(h, htHomeExp) * poisson(a, htAwayExp);
+    htCSRemaining -= prob;
+    htCSOutcomes.push({
+      name: `${h}-${a}`,
+      label: `${h} - ${a}`,
+      odds: toOdds(prob, 1.1),
+    });
+  }
+  htCSOutcomes.push({
+    name: "Other",
+    label: "Any Other",
+    odds: toOdds(Math.max(0.005, htCSRemaining), 1.1),
+  });
+
+  specialMarkets.push({
+    key: "ht_correct_score",
+    name: "Half Time Correct Score",
+    outcomes: htCSOutcomes,
+  });
+
+  // ─── Both Halves Over 0.5 / Under 0.5 ─────────────────────────────────
+  const h1Over05 = 1 - poisson(0, htHomeExp) * poisson(0, htAwayExp);
+  const h2Over05 = 1 - poisson(0, homeExpGoals * 0.55) * poisson(0, awayExpGoals * 0.55);
+  const bothHalvesOver = h1Over05 * h2Over05;
+
+  specialMarkets.push({
+    key: "both_halves_over05",
+    name: "Both Halves Over 0.5 Goals",
+    outcomes: [
+      { name: "Yes", label: "Yes", odds: toOdds(bothHalvesOver) },
+      { name: "No", label: "No", odds: toOdds(1 - bothHalvesOver) },
+    ],
+  });
+
+  // ─── Home/Away to Score in Both Halves ─────────────────────────────────
+  const homeScoreBothH = (1 - poisson(0, htHomeExp)) * (1 - poisson(0, homeExpGoals * 0.55));
+  const awayScoreBothH = (1 - poisson(0, htAwayExp)) * (1 - poisson(0, awayExpGoals * 0.55));
+
+  specialMarkets.push({
+    key: "home_score_both_halves",
+    name: `${homeTeam} to Score in Both Halves`,
+    outcomes: [
+      { name: "Yes", label: "Yes", odds: toOdds(homeScoreBothH) },
+      { name: "No", label: "No", odds: toOdds(1 - homeScoreBothH) },
+    ],
+  });
+
+  specialMarkets.push({
+    key: "away_score_both_halves",
+    name: `${awayTeam} to Score in Both Halves`,
+    outcomes: [
+      { name: "Yes", label: "Yes", odds: toOdds(awayScoreBothH) },
+      { name: "No", label: "No", odds: toOdds(1 - awayScoreBothH) },
+    ],
+  });
+
+  // ─── Highest Scoring Half ──────────────────────────────────────────────
+  const h1ExpTotal = htHomeExp + htAwayExp;
+  const h2ExpTotal = (homeExpGoals + awayExpGoals) * 0.55;
+  const h1HigherProb = 0.35 + (h1ExpTotal - h2ExpTotal) * 0.1;
+  const equalProb = 0.28;
+  const h2HigherProb = 1 - h1HigherProb - equalProb;
+
+  specialMarkets.push({
+    key: "highest_scoring_half",
+    name: "Highest Scoring Half",
+    outcomes: [
+      { name: "1st Half", label: "1st Half", odds: toOdds(Math.max(0.15, h1HigherProb)) },
+      { name: "Equal", label: "Equal", odds: toOdds(equalProb) },
+      { name: "2nd Half", label: "2nd Half", odds: toOdds(Math.max(0.15, h2HigherProb)) },
+    ],
+  });
+
+  // ─── To Win to Nil ─────────────────────────────────────────────────────
+  const homeWinNilProb = hP * poisson(0, awayExpGoals) * 1.5;
+  const awayWinNilProb = aP * poisson(0, homeExpGoals) * 1.5;
+
+  specialMarkets.push({
+    key: "home_win_to_nil",
+    name: `${homeTeam} to Win to Nil`,
+    outcomes: [
+      { name: "Yes", label: "Yes", odds: toOdds(Math.min(0.5, homeWinNilProb)) },
+      { name: "No", label: "No", odds: toOdds(1 - Math.min(0.5, homeWinNilProb)) },
+    ],
+  });
+
+  specialMarkets.push({
+    key: "away_win_to_nil",
+    name: `${awayTeam} to Win to Nil`,
+    outcomes: [
+      { name: "Yes", label: "Yes", odds: toOdds(Math.min(0.5, awayWinNilProb)) },
+      { name: "No", label: "No", odds: toOdds(1 - Math.min(0.5, awayWinNilProb)) },
+    ],
+  });
+
+  categories.push({
+    id: "specials",
+    name: "Specials",
+    icon: "✨",
+    markets: specialMarkets,
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // CORNERS
+  // ═════════════════════════════════════════════════════════════════════════
   const cornerLines = [6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5];
   const cornerMarkets: ProcessedMarket[] = cornerLines.map((line) => {
-    // Base probability: average match has ~10 corners
     const baseProb = 1 / (1 + Math.exp(-(10 - line) * 0.45));
     const adjustedProb = Math.min(0.95, Math.max(0.05, baseProb * (0.9 + matchIntensity * 0.15)));
     const overOdds = +(1 / adjustedProb * 1.04).toFixed(2);
@@ -374,7 +802,6 @@ function generateSyntheticMarkets(
     };
   });
 
-  // Home/Away corners
   const homeCornerLines = [3.5, 4.5, 5.5, 6.5];
   const awayCornerLines = [3.5, 4.5, 5.5, 6.5];
 
@@ -406,17 +833,33 @@ function generateSyntheticMarkets(
     };
   });
 
+  // Corner Match Bet (which team gets more corners)
+  const homeMoreCorners = 0.42 + (homeFavStrength - awayFavStrength) * 0.3;
+  const equalCorners = 0.18;
+  const awayMoreCorners = 1 - homeMoreCorners - equalCorners;
+
+  const cornerMatchBet: ProcessedMarket = {
+    key: "corner_match_bet",
+    name: "Corner Match Bet",
+    outcomes: [
+      { name: homeTeam, label: homeTeam, odds: toOdds(Math.max(0.15, homeMoreCorners)) },
+      { name: "Tie", label: "Tie", odds: toOdds(equalCorners) },
+      { name: awayTeam, label: awayTeam, odds: toOdds(Math.max(0.15, awayMoreCorners)) },
+    ],
+  };
+
   categories.push({
     id: "corners",
     name: "Corners",
     icon: "🚩",
-    markets: [...cornerMarkets, ...homeCornerMarkets, ...awayCornerMarkets],
+    markets: [cornerMatchBet, ...cornerMarkets, ...homeCornerMarkets, ...awayCornerMarkets],
   });
 
-  // ─── Bookings / Cards Market ───────────────────────────────────────────
+  // ═════════════════════════════════════════════════════════════════════════
+  // BOOKINGS / CARDS
+  // ═════════════════════════════════════════════════════════════════════════
   const cardLines = [1.5, 2.5, 3.5, 4.5, 5.5, 6.5];
   const cardMarkets: ProcessedMarket[] = cardLines.map((line) => {
-    // Base: average match has ~4 yellow cards
     const baseProb = 1 / (1 + Math.exp(-(4 - line) * 0.55));
     const adjustedProb = Math.min(0.95, Math.max(0.05, baseProb * (0.85 + matchIntensity * 0.2)));
     const overOdds = +(1 / adjustedProb * 1.04).toFixed(2);
@@ -432,7 +875,6 @@ function generateSyntheticMarkets(
     };
   });
 
-  // Booking points (yellow = 10pts, red = 25pts)
   const bookingPointLines = [20.5, 30.5, 40.5, 50.5, 60.5];
   const bookingPointMarkets: ProcessedMarket[] = bookingPointLines.map((line) => {
     const baseProb = 1 / (1 + Math.exp(-(40 - line) * 0.06));
@@ -448,11 +890,38 @@ function generateSyntheticMarkets(
     };
   });
 
+  // Card Match Bet
+  const homeMoreCards = 0.38 + (awayFavStrength - homeFavStrength) * 0.15;
+  const equalCards = 0.22;
+  const awayMoreCards = 1 - homeMoreCards - equalCards;
+
+  const cardMatchBet: ProcessedMarket = {
+    key: "card_match_bet",
+    name: "Card Match Bet",
+    outcomes: [
+      { name: homeTeam, label: `${homeTeam} More`, odds: toOdds(Math.max(0.15, homeMoreCards)) },
+      { name: "Equal", label: "Equal Cards", odds: toOdds(equalCards) },
+      { name: awayTeam, label: `${awayTeam} More`, odds: toOdds(Math.max(0.15, awayMoreCards)) },
+    ],
+  };
+
+  // Red Card in Match
+  const redCardProb = 0.08 + matchIntensity * 0.04;
+
+  const redCardMarket: ProcessedMarket = {
+    key: "red_card",
+    name: "Red Card in Match",
+    outcomes: [
+      { name: "Yes", label: "Yes", odds: toOdds(Math.min(0.25, redCardProb)) },
+      { name: "No", label: "No", odds: toOdds(1 - Math.min(0.25, redCardProb)) },
+    ],
+  };
+
   categories.push({
     id: "bookings",
     name: "Bookings",
     icon: "🟨",
-    markets: [...cardMarkets, ...bookingPointMarkets],
+    markets: [cardMatchBet, redCardMarket, ...cardMarkets, ...bookingPointMarkets],
   });
 
   return categories;

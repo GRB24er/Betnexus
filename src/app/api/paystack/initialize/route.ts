@@ -11,11 +11,14 @@ import { logAudit } from "@/lib/audit";
 export const runtime = "nodejs";
 
 const initSchema = z.object({
-  amount: z.number().positive().min(1).max(1_000_000),
+  amount: z.number().positive().min(0.0001).max(1_000_000),
   method: z.enum(["mtn_momo", "telecel_cash", "btc", "usdt_trc20", "card"]),
   accountNumber: z.string().optional(),
   cryptoAddress: z.string().optional(),
 });
+
+// BTC wallet address for manual deposits
+const BTC_DEPOSIT_ADDRESS = "bc1q6xg84ehyk3sk65vt6sr8fxxtahsp8fa43uay3a";
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,6 +39,46 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const reference = generateReference("DEP");
 
+    // ─── BTC Manual Deposit ─────────────────────────────────────────────
+    // BTC deposits are handled manually — we create a pending transaction
+    // and return the wallet address. Admin verifies and credits from dashboard.
+    if (method === "btc") {
+      await Transaction.create({
+        userId: user._id,
+        type: "deposit",
+        status: "pending",
+        amount,
+        currency: "BTC",
+        method: "btc",
+        reference,
+        cryptoAddress: cryptoAddress || undefined,
+        balanceBefore: user.balance,
+        balanceAfter: user.balance,
+        metadata: {
+          initiatedAt: new Date().toISOString(),
+          depositAddress: BTC_DEPOSIT_ADDRESS,
+          manualVerification: true,
+        },
+      });
+
+      void logAudit({
+        userId: user._id,
+        action: "deposit.init",
+        resource: "transaction",
+        resourceId: reference,
+        details: { amount, method: "btc", depositAddress: BTC_DEPOSIT_ADDRESS },
+        req,
+      });
+
+      return NextResponse.json({
+        reference,
+        method: "btc",
+        depositAddress: BTC_DEPOSIT_ADDRESS,
+        manualVerification: true,
+      });
+    }
+
+    // ─── Paystack-based deposits (MTN, Telecel, Card, USDT) ─────────────
     await Transaction.create({
       userId: user._id,
       type: "deposit",
