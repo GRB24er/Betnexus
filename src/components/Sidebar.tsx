@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ChevronRight,
   Shield,
+  Wallet,
 } from "lucide-react";
 import { sportsCategories } from "@/lib/data";
 import { useState } from "react";
@@ -26,7 +27,7 @@ const mainNav = [
   { href: "/live", label: "Live Betting", icon: Zap, badge: "LIVE" },
   { href: "/virtuals", label: "Virtuals", icon: MonitorPlay },
   { href: "/casino", label: "Casino", icon: Gamepad2 },
-  { href: "/promotions", label: "Promotions", icon: Gift, badge: "3" },
+  { href: "/promotions", label: "Promotions", icon: Gift, badge: "NEW" },
 ];
 
 const quickLinks = [
@@ -44,15 +45,13 @@ export default function Sidebar() {
     <aside className="fixed left-0 top-0 bottom-0 w-[240px] bg-[#161925] border-r border-[#2a3050] z-40 flex flex-col overflow-hidden lg:flex hidden">
       {/* Logo */}
       <div className="p-5 border-b border-[#2a3050]">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-lg gradient-green flex items-center justify-center">
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <div className="w-9 h-9 rounded-lg gradient-green flex items-center justify-center glow-green group-hover:scale-105 transition-transform">
             <Zap className="w-5 h-5 text-white" fill="white" />
           </div>
-          <div>
-            <span className="text-xl font-bold tracking-tight text-white">
-              Bet<span className="text-[#00d46e]">Nexus</span>
-            </span>
-          </div>
+          <span className="text-xl font-extrabold tracking-tight text-white">
+            Bet<span className="text-gradient-green">Nexus</span>
+          </span>
         </Link>
       </div>
 
@@ -68,23 +67,25 @@ export default function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg mb-0.5 text-sm font-medium transition-all duration-200 group ${
+                className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg mb-0.5 text-sm font-medium transition-all duration-200 group ${
                   isActive
                     ? "bg-[#00d46e]/10 text-[#00d46e]"
                     : "text-[#8b95b8] hover:bg-[#1c2033] hover:text-white"
                 }`}
               >
+                {/* Active indicator bar */}
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#00d46e] rounded-r-full" />
+                )}
                 <item.icon
-                  className={`w-[18px] h-[18px] ${
-                    isActive
-                      ? "text-[#00d46e]"
-                      : "text-[#5a6485] group-hover:text-white"
+                  className={`w-[18px] h-[18px] transition-colors ${
+                    isActive ? "text-[#00d46e]" : "text-[#5a6485] group-hover:text-white"
                   }`}
                 />
                 <span className="flex-1">{item.label}</span>
                 {item.badge && (
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
                       item.badge === "LIVE"
                         ? "bg-[#ff4757]/20 text-[#ff4757] live-pulse"
                         : "bg-[#00d46e]/20 text-[#00d46e]"
@@ -109,9 +110,9 @@ export default function Sidebar() {
               href={item.href}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg mb-0.5 text-sm font-medium text-[#8b95b8] hover:bg-[#1c2033] hover:text-white transition-all duration-200 w-full group"
             >
-              <item.icon className="w-[18px] h-[18px] text-[#5a6485] group-hover:text-white" />
+              <item.icon className="w-[18px] h-[18px] text-[#5a6485] group-hover:text-white transition-colors" />
               <span className="flex-1 text-left">{item.label}</span>
-              <span className="text-[11px] text-[#5a6485]">{item.count}</span>
+              <span className="text-[10px] text-[#5a6485] bg-[#0f1118] px-1.5 py-0.5 rounded-full">{item.count}</span>
             </Link>
           ))}
         </div>
@@ -120,31 +121,39 @@ export default function Sidebar() {
         <div>
           <button
             onClick={() => setSportsOpen(!sportsOpen)}
-            className="flex items-center gap-2 px-3 mb-2 w-full"
+            className="flex items-center gap-2 px-3 mb-2 w-full hover:opacity-80 transition-opacity"
           >
             <p className="text-[10px] font-semibold text-[#5a6485] uppercase tracking-wider flex-1 text-left">
               Sports
             </p>
             {sportsOpen ? (
-              <ChevronDown className="w-3 h-3 text-[#5a6485]" />
+              <ChevronDown className="w-3.5 h-3.5 text-[#5a6485]" />
             ) : (
-              <ChevronRight className="w-3 h-3 text-[#5a6485]" />
+              <ChevronRight className="w-3.5 h-3.5 text-[#5a6485]" />
             )}
           </button>
-          {sportsOpen &&
-            sportsCategories.map((sport) => (
-              <Link
-                key={sport.id}
-                href={`/sports?cat=${sport.id}`}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg mb-0.5 text-sm text-[#8b95b8] hover:bg-[#1c2033] hover:text-white transition-all duration-200"
-              >
-                <span className="text-base w-5 text-center">{sport.icon}</span>
-                <span className="flex-1">{sport.name}</span>
-                <span className="text-[11px] text-[#5a6485]">
-                  {sport.count}
-                </span>
-              </Link>
-            ))}
+          <div className={`overflow-hidden transition-all duration-300 ${sportsOpen ? "max-h-[500px]" : "max-h-0"}`}>
+            {sportsCategories.map((sport) => {
+              const isActive = pathname === "/sports" && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("cat") === sport.id;
+              return (
+                <Link
+                  key={sport.id}
+                  href={`/sports?cat=${sport.id}`}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg mb-0.5 text-sm transition-all duration-200 group ${
+                    isActive
+                      ? "bg-[#00d46e]/10 text-[#00d46e]"
+                      : "text-[#8b95b8] hover:bg-[#1c2033] hover:text-white"
+                  }`}
+                >
+                  <span className="text-base w-5 text-center group-hover:scale-110 transition-transform">{sport.icon}</span>
+                  <span className="flex-1">{sport.name}</span>
+                  <span className="text-[10px] text-[#5a6485] bg-[#0f1118] px-1.5 py-0.5 rounded-full">
+                    {sport.count}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </nav>
 
@@ -153,13 +162,17 @@ export default function Sidebar() {
         {user?.role === "admin" && (
           <Link
             href="/admin"
-            className="flex items-center justify-center gap-2 w-full bg-[#8b5cf6]/10 border border-[#8b5cf6]/30 text-[#8b5cf6] font-semibold text-sm py-2.5 rounded-lg hover:bg-[#8b5cf6]/20 transition-colors text-center"
+            className="flex items-center justify-center gap-2 w-full bg-[#8b5cf6]/10 border border-[#8b5cf6]/30 text-[#8b5cf6] font-semibold text-sm py-2.5 rounded-lg hover:bg-[#8b5cf6]/20 transition-all text-center glow-purple"
           >
             <Shield className="w-4 h-4" />
             Admin Dashboard
           </Link>
         )}
-        <Link href="/deposit" className="block w-full gradient-green text-white font-semibold text-sm py-2.5 rounded-lg hover:opacity-90 transition-opacity text-center">
+        <Link
+          href="/deposit"
+          className="flex items-center justify-center gap-2 w-full gradient-green text-white font-bold text-sm py-3 rounded-xl hover:opacity-90 transition-all glow-green"
+        >
+          <Wallet className="w-4 h-4" />
           Deposit Now
         </Link>
       </div>

@@ -270,7 +270,7 @@ export default function DepositPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {paymentMethods
-                  .filter((m) => m.id === "mtn-momo" || m.id === "telecel")
+                  .filter((m) => m.id === "mtn_momo" || m.id === "telecel_cash")
                   .map((m) => (
                     <button
                       key={m.id}

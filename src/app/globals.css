@@ -55,37 +55,187 @@ body {
 }
 
 /* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-accent); border-radius: 3px; }
+
+/* ═══════════════════════════════════════════
+   GLOW & SHADOW EFFECTS
+   ═══════════════════════════════════════════ */
+.glow-green { box-shadow: 0 0 20px rgba(0, 212, 110, 0.15); }
+.glow-blue { box-shadow: 0 0 20px rgba(59, 130, 246, 0.15); }
+.glow-green-strong { box-shadow: 0 0 30px rgba(0, 212, 110, 0.25), 0 0 60px rgba(0, 212, 110, 0.1); }
+.glow-purple { box-shadow: 0 0 20px rgba(139, 92, 246, 0.15); }
+
+/* Card hover lift effect */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--bg-accent);
-  border-radius: 3px;
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  border-color: rgba(0, 212, 110, 0.2);
 }
 
-/* Glow effects */
-.glow-green {
-  box-shadow: 0 0 20px rgba(0, 212, 110, 0.15);
+/* Glassmorphism */
+.glass {
+  background: rgba(28, 32, 51, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(42, 48, 80, 0.5);
 }
-.glow-blue {
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
-}
+
+/* ═══════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════ */
 
 /* Pulse animation for live indicators */
 @keyframes livePulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
-.live-pulse {
-  animation: livePulse 1.5s ease-in-out infinite;
+.live-pulse { animation: livePulse 1.5s ease-in-out infinite; }
+
+/* Live dot with ring */
+@keyframes liveRing {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+.live-dot {
+  position: relative;
+}
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #ff4757;
+  animation: liveRing 1.5s ease-out infinite;
 }
 
-/* Gradient backgrounds */
+/* Fade in up */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+.fade-in-up-delay-1 { animation-delay: 0.1s; opacity: 0; }
+.fade-in-up-delay-2 { animation-delay: 0.2s; opacity: 0; }
+.fade-in-up-delay-3 { animation-delay: 0.3s; opacity: 0; }
+.fade-in-up-delay-4 { animation-delay: 0.4s; opacity: 0; }
+
+/* Fade in */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in { animation: fadeIn 0.3s ease-out; }
+
+/* Scale in */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.scale-in { animation: scaleIn 0.3s ease-out; }
+
+/* Slide up (bet slip) */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.slide-up { animation: slideUp 0.3s ease-out; }
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.05) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, #1c2033 25%, #232840 50%, #1c2033 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* Odds change flash */
+@keyframes oddsFlash {
+  0% { background-color: rgba(0, 212, 110, 0.3); }
+  100% { background-color: transparent; }
+}
+.odds-flash-up { animation: oddsFlash 1s ease-out; }
+
+@keyframes oddsFlashDown {
+  0% { background-color: rgba(255, 71, 87, 0.3); }
+  100% { background-color: transparent; }
+}
+.odds-flash-down { animation: oddsFlashDown 1s ease-out; }
+
+/* Score pop animation */
+@keyframes scorePop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); color: #00d46e; }
+  100% { transform: scale(1); }
+}
+.score-pop { animation: scorePop 0.5s ease-out; }
+
+/* Number count up shimmer */
+@keyframes countShimmer {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+.count-shimmer { animation: countShimmer 0.8s ease-in-out; }
+
+/* Marquee for promo banners */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.marquee { animation: marquee 30s linear infinite; }
+
+/* Gradient text */
+.text-gradient-green {
+  background: linear-gradient(135deg, #00d46e 0%, #00e68a 50%, #00d46e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.text-gradient-gold {
+  background: linear-gradient(135deg, #ffc107 0%, #ffdb4d 50%, #ffc107 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ═══════════════════════════════════════════
+   GRADIENT BACKGROUNDS
+   ═══════════════════════════════════════════ */
 .gradient-hero {
   background: linear-gradient(135deg, #1a1f3a 0%, #0f1118 50%, #1a2340 100%);
+}
+.gradient-hero-premium {
+  background: linear-gradient(135deg, #0f2027 0%, #203a43 40%, #2c5364 100%);
+  position: relative;
+  overflow: hidden;
+}
+.gradient-hero-premium::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 60%;
+  height: 200%;
+  background: radial-gradient(ellipse, rgba(0, 212, 110, 0.08) 0%, transparent 70%);
+  pointer-events: none;
 }
 .gradient-card {
   background: linear-gradient(180deg, #1c2033 0%, #161925 100%);
@@ -102,49 +252,46 @@ body {
 .gradient-purple {
   background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
 }
-
-/* Shimmer loading effect */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+.gradient-gold {
+  background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
 }
-.shimmer {
-  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.05) 50%, transparent 75%);
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite;
+.gradient-live {
+  background: linear-gradient(135deg, #ff4757 0%, #c0392b 100%);
 }
 
-/* Bet slip slide animation */
-@keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-.slide-up {
-  animation: slideUp 0.3s ease-out;
-}
+/* Match card sport stripe */
+.sport-stripe-football { border-left: 3px solid #00d46e; }
+.sport-stripe-basketball { border-left: 3px solid #ff6b35; }
+.sport-stripe-tennis { border-left: 3px solid #ffc107; }
+.sport-stripe-cricket { border-left: 3px solid #3b82f6; }
+.sport-stripe-baseball { border-left: 3px solid #ff4757; }
+.sport-stripe-mma { border-left: 3px solid #8b5cf6; }
+.sport-stripe-rugby { border-left: 3px solid #06b6d4; }
+.sport-stripe-ice-hockey { border-left: 3px solid #60a5fa; }
 
-/* Odds change flash */
-@keyframes oddsFlash {
-  0% { background-color: rgba(0, 212, 110, 0.3); }
-  100% { background-color: transparent; }
-}
-.odds-flash-up {
-  animation: oddsFlash 1s ease-out;
-}
-
-@keyframes oddsFlashDown {
-  0% { background-color: rgba(255, 71, 87, 0.3); }
-  100% { background-color: transparent; }
-}
-.odds-flash-down {
-  animation: oddsFlashDown 1s ease-out;
-}
+/* ═══════════════════════════════════════════
+   UTILITY CLASSES
+   ═══════════════════════════════════════════ */
 
 /* Hide scrollbar but keep scroll functionality */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* Truncate multi-line */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Smooth image loading */
+img {
+  transition: opacity 0.3s ease;
+}
+img[loading] {
+  opacity: 0;
 }

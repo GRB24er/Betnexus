@@ -16,6 +16,8 @@ import {
   Menu,
   X,
   Loader2,
+  ArrowUpCircle,
+  Settings,
 } from "lucide-react";
 import { useSession, sessionStore } from "@/store/session";
 
@@ -23,10 +25,12 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/bets", label: "Bets", icon: Receipt },
+  { href: "/admin/withdrawals", label: "Withdrawals", icon: ArrowUpCircle },
   { href: "/admin/revenue", label: "Revenue", icon: DollarSign },
   { href: "/admin/promotions", label: "Promotions", icon: Gift },
   { href: "/admin/kyc", label: "KYC Review", icon: ShieldCheck },
   { href: "/admin/audit", label: "Audit Logs", icon: ScrollText },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

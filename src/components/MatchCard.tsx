@@ -3,12 +3,37 @@
 import { useSyncExternalStore } from "react";
 import { Match } from "@/lib/data";
 import { betSlipStore } from "@/store/betslip";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Clock } from "lucide-react";
 import Link from "next/link";
 
 interface MatchCardProps {
   match: Match;
   variant?: "default" | "compact" | "featured";
+}
+
+const sportColors: Record<string, string> = {
+  football: "#00d46e",
+  basketball: "#ff6b35",
+  tennis: "#ffc107",
+  cricket: "#3b82f6",
+  baseball: "#ff4757",
+  "ice-hockey": "#60a5fa",
+  mma: "#8b5cf6",
+  rugby: "#06b6d4",
+};
+
+function getSportIcon(sport: string): string {
+  const icons: Record<string, string> = {
+    football: "\u26BD",
+    basketball: "\uD83C\uDFC0",
+    tennis: "\uD83C\uDFBE",
+    cricket: "\uD83C\uDFCF",
+    baseball: "\u26BE",
+    "ice-hockey": "\uD83C\uDFD2",
+    mma: "\uD83E\uDD4A",
+    rugby: "\uD83C\uDFC9",
+  };
+  return icons[sport] || "\uD83C\uDFC6";
 }
 
 export default function MatchCard({ match, variant = "default" }: MatchCardProps) {
@@ -38,80 +63,105 @@ export default function MatchCard({ match, variant = "default" }: MatchCardProps
   const isSelected = (selection: string) =>
     items.some((b) => b.id === `${match.id}-${selection}`);
 
+  const stripeColor = sportColors[match.sport] || "#00d46e";
+
+  // ═══ FEATURED VARIANT ═══
   if (variant === "featured") {
     return (
-      <div className="bg-[#1c2033] border border-[#2a3050] rounded-xl overflow-hidden hover:border-[#3b82f6]/30 transition-all group">
+      <div
+        className="bg-[#1c2033] border border-[#2a3050] rounded-xl overflow-hidden card-hover group"
+        style={{ borderLeftWidth: "3px", borderLeftColor: stripeColor }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#2a3050]/50">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-[#161925]/50">
           <div className="flex items-center gap-2">
-            <span className="text-xs">{getSportIcon(match.sport)}</span>
-            <span className="text-xs text-[#8b95b8] font-medium">{match.league}</span>
+            <span className="text-sm">{getSportIcon(match.sport)}</span>
+            <span className="text-[11px] text-[#8b95b8] font-medium truncate max-w-[140px]">{match.league}</span>
           </div>
           {match.isLive ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 bg-[#ff4757]/10 px-2 py-0.5 rounded-full">
               <span className="w-1.5 h-1.5 bg-[#ff4757] rounded-full live-pulse" />
-              <span className="text-[11px] font-bold text-[#ff4757]">{match.time}</span>
+              <span className="text-[10px] font-bold text-[#ff4757]">LIVE {match.time}</span>
             </div>
           ) : (
-            <span className="text-[11px] text-[#5a6485]">{match.time}</span>
+            <div className="flex items-center gap-1 text-[#5a6485]">
+              <Clock className="w-3 h-3" />
+              <span className="text-[11px]">{match.time}</span>
+            </div>
           )}
         </div>
 
         {/* Teams & Score */}
         <div className="px-4 py-4">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-white mb-1">{match.homeTeam}</p>
-              <p className="text-sm font-semibold text-white">{match.awayTeam}</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-full bg-[#2a3050] flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                  {match.homeTeam.charAt(0)}
+                </div>
+                <p className="text-sm font-semibold text-white truncate">{match.homeTeam}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-[#2a3050] flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                  {match.awayTeam.charAt(0)}
+                </div>
+                <p className="text-sm font-semibold text-white truncate">{match.awayTeam}</p>
+              </div>
             </div>
             {match.isLive && (
-              <div className="text-right">
-                <p className="text-lg font-bold text-white mb-1">{match.homeScore}</p>
-                <p className="text-lg font-bold text-white">{match.awayScore}</p>
+              <div className="text-right ml-3">
+                <p className="text-xl font-bold text-white mb-1">{match.homeScore}</p>
+                <p className="text-xl font-bold text-white">{match.awayScore}</p>
               </div>
             )}
           </div>
 
+          {/* Live progress */}
+          {match.isLive && match.minute && (
+            <div className="mb-3">
+              <div className="w-full h-1 bg-[#2a3050] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-1000"
+                  style={{
+                    width: `${Math.min((match.minute / 90) * 100, 100)}%`,
+                    backgroundColor: stripeColor,
+                  }}
+                />
+              </div>
+              <p className="text-[9px] text-[#5a6485] mt-1 text-right">{match.minute}&apos;</p>
+            </div>
+          )}
+
           {/* Odds */}
           <div className="grid grid-cols-3 gap-2">
-            <OddsButton
-              label="1"
-              odds={match.odds.home}
-              selected={isSelected("home")}
-              onClick={() => handleOddsClick("home", match.odds.home)}
-            />
+            <OddsButton label="1" odds={match.odds.home} selected={isSelected("home")} onClick={() => handleOddsClick("home", match.odds.home)} />
             {match.odds.draw > 0 && (
-              <OddsButton
-                label="X"
-                odds={match.odds.draw}
-                selected={isSelected("draw")}
-                onClick={() => handleOddsClick("draw", match.odds.draw)}
-              />
+              <OddsButton label="X" odds={match.odds.draw} selected={isSelected("draw")} onClick={() => handleOddsClick("draw", match.odds.draw)} />
             )}
-            <OddsButton
-              label="2"
-              odds={match.odds.away}
-              selected={isSelected("away")}
-              onClick={() => handleOddsClick("away", match.odds.away)}
-            />
+            <OddsButton label="2" odds={match.odds.away} selected={isSelected("away")} onClick={() => handleOddsClick("away", match.odds.away)} />
           </div>
 
-          {/* Markets count */}
           {match.markets && (
-            <div className="flex items-center justify-center gap-1 mt-3 text-[11px] text-[#5a6485]">
+            <Link
+              href={`/match/${match.id}`}
+              className="flex items-center justify-center gap-1 mt-3 text-[11px] text-[#5a6485] hover:text-[#00d46e] transition-colors"
+            >
               <BarChart3 className="w-3 h-3" />
               <span>+{match.markets} markets</span>
-            </div>
+            </Link>
           )}
         </div>
       </div>
     );
   }
 
-  // Compact variant
+  // ═══ COMPACT VARIANT ═══
   if (variant === "compact") {
     return (
-      <div className="bg-[#1c2033] border border-[#2a3050] rounded-lg p-3 hover:border-[#3b82f6]/30 transition-all">
+      <div
+        className="bg-[#1c2033] border border-[#2a3050] rounded-lg p-3 card-hover"
+        style={{ borderLeftWidth: "3px", borderLeftColor: stripeColor }}
+      >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="text-xs">{getSportIcon(match.sport)}</span>
@@ -149,26 +199,31 @@ export default function MatchCard({ match, variant = "default" }: MatchCardProps
     );
   }
 
-  // Default variant
+  // ═══ DEFAULT VARIANT ═══
   return (
-    <div className="bg-[#1c2033] border border-[#2a3050] rounded-xl p-4 hover:border-[#3b82f6]/30 transition-all">
+    <div
+      className="bg-[#1c2033] border border-[#2a3050] rounded-xl p-4 card-hover"
+      style={{ borderLeftWidth: "3px", borderLeftColor: stripeColor }}
+    >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-sm">{getSportIcon(match.sport)}</span>
-          <span className="text-xs text-[#8b95b8] font-medium">{match.league}</span>
+          <span className="text-xs text-[#8b95b8] font-medium truncate max-w-[150px]">{match.league}</span>
         </div>
         <div className="flex items-center gap-2">
-          {match.isLive && (
-            <div className="flex items-center gap-1.5">
+          {match.isLive ? (
+            <div className="flex items-center gap-1.5 bg-[#ff4757]/10 px-2 py-0.5 rounded-full">
               <span className="w-1.5 h-1.5 bg-[#ff4757] rounded-full live-pulse" />
-              <span className="text-[11px] font-bold text-[#ff4757]">{match.time}</span>
+              <span className="text-[10px] font-bold text-[#ff4757]">LIVE {match.time}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 text-[#5a6485]">
+              <Clock className="w-3 h-3" />
+              <span className="text-[11px]">{match.time}</span>
             </div>
           )}
-          {!match.isLive && (
-            <span className="text-[11px] text-[#5a6485]">{match.time}</span>
-          )}
           {match.markets && (
-            <Link href={`/match/${match.id}`} className="text-[11px] text-[#3b82f6] hover:underline">
+            <Link href={`/match/${match.id}`} className="text-[11px] text-[#3b82f6] hover:text-[#60a5fa] transition-colors">
               +{match.markets}
             </Link>
           )}
@@ -176,14 +231,24 @@ export default function MatchCard({ match, variant = "default" }: MatchCardProps
       </div>
 
       <div className="flex items-center justify-between mb-3">
-        <div className="flex-1">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-medium text-white">{match.homeTeam}</span>
-            {match.isLive && <span className="text-base font-bold text-white">{match.homeScore}</span>}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-[#2a3050] flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+                {match.homeTeam.charAt(0)}
+              </div>
+              <span className="text-sm font-medium text-white truncate">{match.homeTeam}</span>
+            </div>
+            {match.isLive && <span className="text-base font-bold text-white ml-2">{match.homeScore}</span>}
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-white">{match.awayTeam}</span>
-            {match.isLive && <span className="text-base font-bold text-white">{match.awayScore}</span>}
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-[#2a3050] flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+                {match.awayTeam.charAt(0)}
+              </div>
+              <span className="text-sm font-medium text-white truncate">{match.awayTeam}</span>
+            </div>
+            {match.isLive && <span className="text-base font-bold text-white ml-2">{match.awayScore}</span>}
           </div>
         </div>
       </div>
@@ -193,8 +258,11 @@ export default function MatchCard({ match, variant = "default" }: MatchCardProps
         <div className="mb-3">
           <div className="w-full h-1 bg-[#2a3050] rounded-full overflow-hidden">
             <div
-              className="h-full bg-[#00d46e] rounded-full transition-all duration-1000"
-              style={{ width: `${(match.minute / 90) * 100}%` }}
+              className="h-full rounded-full transition-all duration-1000"
+              style={{
+                width: `${Math.min((match.minute / 90) * 100, 100)}%`,
+                backgroundColor: stripeColor,
+              }}
             />
           </div>
         </div>
@@ -228,29 +296,15 @@ function OddsButton({
     <button
       onClick={onClick}
       className={`flex flex-col items-center justify-center rounded-lg transition-all duration-200 ${
-        small ? "py-1.5 px-2" : "py-2 px-3"
+        small ? "py-1.5 px-2" : "py-2.5 px-3"
       } ${
         selected
-          ? "bg-[#00d46e]/20 border border-[#00d46e]/50 text-[#00d46e]"
-          : "bg-[#0f1118] border border-[#2a3050] text-[#8b95b8] hover:border-[#00d46e]/30 hover:text-white"
+          ? "bg-[#00d46e]/15 border border-[#00d46e]/50 text-[#00d46e] glow-green"
+          : "bg-[#0f1118] border border-[#2a3050] text-[#8b95b8] hover:border-[#00d46e]/30 hover:text-white hover:bg-[#0f1118]/80"
       }`}
     >
       <span className={`${small ? "text-[9px]" : "text-[10px]"} font-medium opacity-60`}>{label}</span>
       <span className={`${small ? "text-xs" : "text-sm"} font-bold`}>{odds.toFixed(2)}</span>
     </button>
   );
-}
-
-function getSportIcon(sport: string): string {
-  const icons: Record<string, string> = {
-    football: "⚽",
-    basketball: "🏀",
-    tennis: "🎾",
-    cricket: "🏏",
-    baseball: "⚾",
-    "ice-hockey": "🏒",
-    mma: "🥊",
-    rugby: "🏉",
-  };
-  return icons[sport] || "🏆";
 }
