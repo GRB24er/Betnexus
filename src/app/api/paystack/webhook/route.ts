@@ -57,7 +57,10 @@ export async function POST(req: NextRequest) {
     if (event.event === "charge.success") {
       const amount = fromMinorUnit(event.data.amount);
 
-      // Atomic: only process if still pending/processing (prevents double-credit)
+      // Idempotent: the filter `status: { $in: [pending, processing] }` means
+      // a re-delivery of the same webhook (Paystack retries on timeout) lands
+      // on a tx whose status is already "success" and the update returns null,
+      // skipping the credit block. Without this, retries would double-credit.
       const tx = await Transaction.findOneAndUpdate(
         {
           reference: event.data.reference,
@@ -70,7 +73,7 @@ export async function POST(req: NextRequest) {
             "metadata.webhook": event,
           },
         },
-        { new: true }
+        { returnDocument: "after" }
       );
 
       if (tx) {
@@ -78,7 +81,7 @@ export async function POST(req: NextRequest) {
         const user = await User.findByIdAndUpdate(
           tx.userId,
           { $inc: { balance: amount, totalDeposited: amount } },
-          { new: true }
+          { returnDocument: "after" }
         );
 
         if (user) {
@@ -130,7 +133,10 @@ export async function POST(req: NextRequest) {
       event.event === "transfer.failed" ||
       event.event === "transfer.reversed"
     ) {
-      // Atomic: only reverse if not already succeeded
+      // Idempotent: the filter `status: { $nin: [success, failed] }` means a
+      // duplicate "transfer.reversed" webhook lands on an already-failed tx,
+      // returns null, and the refund block is skipped. The user is never
+      // double-refunded even under aggressive Paystack retries.
       const tx = await Transaction.findOneAndUpdate(
         {
           reference: event.data.reference,
@@ -143,7 +149,7 @@ export async function POST(req: NextRequest) {
             failureReason: event.event,
           },
         },
-        { new: true }
+        { returnDocument: "after" }
       );
 
       if (tx) {

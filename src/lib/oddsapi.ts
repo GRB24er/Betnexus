@@ -1523,6 +1523,129 @@ export function findSportKeyForEvent(eventId: string): string | null {
 }
 
 /**
+ * Fetch final/in-progress scores for a sport. Used by the bet settlement
+ * job — the global match store evicts events once they finish, so this is
+ * the only way to determine the result of a completed match.
+ */
+export async function fetchScores(
+  sportKey: string,
+  daysFrom: number = 3
+): Promise<OddsAPIScore[]> {
+  try {
+    return await oddsApiFetch<OddsAPIScore[]>(`/sports/${sportKey}/scores`, {
+      daysFrom: String(daysFrom),
+    });
+  } catch (err) {
+    console.warn(`[oddsapi] fetchScores failed for ${sportKey}:`, err);
+    return [];
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Server-side bet selection validation
+// ═════════════════════════════════════════════════════════════════════════════
+
+export interface SelectionValidation {
+  ok: boolean;
+  reason?: string;
+  expectedOdds?: number;
+}
+
+const MONEYLINE_MARKET_NAMES = [
+  "match result",
+  "match winner",
+  "1x2",
+  "h2h",
+  "moneyline",
+  "winner",
+  "result",
+];
+
+/**
+ * Validate a bet selection against current server-side odds.
+ *
+ * Rejects:
+ *  - matches not in the cache (unknown event ID)
+ *  - matches that finished long ago (older than 4h after kickoff)
+ *  - submitted odds that drift > tolerancePct from server odds
+ *  - selections that don't exist in the cached markets
+ *
+ * Without this, a malicious client can submit any `odds` value (up to the
+ * Zod max of 1000) and the server would multiply it through to payout.
+ */
+export function validateBetSelection(
+  matchId: string,
+  market: string,
+  selection: string,
+  claimedOdds: number,
+  tolerancePct = 5
+): SelectionValidation {
+  const match = store.matches.find((m) => m.id === matchId);
+  if (!match) {
+    return { ok: false, reason: "match not available for betting" };
+  }
+
+  if (match.commenceTime) {
+    const ageMs = Date.now() - new Date(match.commenceTime).getTime();
+    if (ageMs > 4 * 60 * 60 * 1000) {
+      return { ok: false, reason: "match has already finished" };
+    }
+  }
+
+  const isMoneyline = MONEYLINE_MARKET_NAMES.some((n) =>
+    market.toLowerCase().includes(n)
+  );
+
+  if (isMoneyline) {
+    const sel = selection.trim().toLowerCase();
+    let expected = 0;
+    if (sel === "draw" || sel === "x") {
+      expected = match.odds.draw;
+    } else if (
+      sel === match.homeTeam.toLowerCase() ||
+      sel === "home" ||
+      sel === "1"
+    ) {
+      expected = match.odds.home;
+    } else if (
+      sel === match.awayTeam.toLowerCase() ||
+      sel === "away" ||
+      sel === "2"
+    ) {
+      expected = match.odds.away;
+    }
+    if (!expected || expected < 1.01) {
+      return { ok: false, reason: "selection not found for this market" };
+    }
+    const drift = Math.abs(claimedOdds - expected) / expected;
+    if (drift > tolerancePct / 100) {
+      return { ok: false, reason: "odds have changed", expectedOdds: expected };
+    }
+    return { ok: true, expectedOdds: expected };
+  }
+
+  const cached = marketCache.get(matchId);
+  if (!cached) {
+    return { ok: false, reason: "market not currently priced" };
+  }
+  for (const cat of cached.categories) {
+    for (const m of cat.markets) {
+      if (m.name.toLowerCase() !== market.toLowerCase()) continue;
+      const outcome = m.outcomes.find(
+        (o) => o.label === selection || o.name === selection
+      );
+      if (!outcome) continue;
+      const drift = Math.abs(claimedOdds - outcome.odds) / outcome.odds;
+      if (drift > tolerancePct / 100) {
+        return { ok: false, reason: "odds have changed", expectedOdds: outcome.odds };
+      }
+      return { ok: true, expectedOdds: outcome.odds };
+    }
+  }
+  return { ok: false, reason: "selection not found for this market" };
+}
+
+/**
  * Get the store status (for debugging/admin).
  */
 export function getStoreStatus() {

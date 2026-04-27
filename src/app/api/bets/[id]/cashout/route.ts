@@ -6,8 +6,11 @@ import { User } from "@/models/User";
 import { getCurrentUser, serverError, unauthorized } from "@/lib/auth";
 import { generateReference } from "@/lib/reference";
 import { logAudit } from "@/lib/audit";
+import { roundMoney } from "@/lib/money";
 
 export const runtime = "nodejs";
+
+const CASHOUT_FACTOR = 0.7;
 
 export async function POST(
   req: NextRequest,
@@ -21,21 +24,15 @@ export async function POST(
 
     await connectDB();
 
-    // Simplified cashout: 70% of potential win
-    // Atomic: only transition if still pending — prevents double cashout
-    const bet = await Bet.findOneAndUpdate(
-      { _id: id, userId: user._id, status: "pending" },
-      {
-        $set: {
-          status: "cashed_out",
-          cashedOutAt: new Date(),
-          settledAt: new Date(),
-        },
-      },
-      { new: true }
-    );
-
-    if (!bet) {
+    // Read potentialWin first so we can include the cashout amount in the
+    // same atomic update — keeps the bet's `cashedOutAmount` and `status`
+    // consistent even if a process crash happens before user credit.
+    const candidate = await Bet.findOne({
+      _id: id,
+      userId: user._id,
+      status: "pending",
+    });
+    if (!candidate) {
       const existing = await Bet.findOne({ _id: id, userId: user._id });
       if (!existing) {
         return NextResponse.json({ error: "Bet not found" }, { status: 404 });
@@ -46,18 +43,39 @@ export async function POST(
       );
     }
 
-    const cashoutAmount = Math.round(bet.potentialWin * 0.7 * 100) / 100;
+    const cashoutAmount = roundMoney(candidate.potentialWin * CASHOUT_FACTOR);
 
-    // Persist cashout amount after atomic lock
-    bet.cashedOutAmount = cashoutAmount;
-    bet.payout = cashoutAmount;
-    await bet.save();
+    // Atomic transition: lock the bet AND record the payout in one write.
+    // The matched filter (status: "pending") prevents double-cashout under
+    // concurrent requests.
+    const bet = await Bet.findOneAndUpdate(
+      { _id: id, userId: user._id, status: "pending" },
+      {
+        $set: {
+          status: "cashed_out",
+          cashedOutAt: new Date(),
+          settledAt: new Date(),
+          cashedOutAmount: cashoutAmount,
+          payout: cashoutAmount,
+        },
+      },
+      { returnDocument: "after" }
+    );
 
-    // Credit user atomically
+    if (!bet) {
+      return NextResponse.json(
+        { error: "Bet was already cashed out" },
+        { status: 409 }
+      );
+    }
+
+    // Credit user balance atomically. If this fails the bet is already locked
+    // with cashedOutAmount set, so a reconciliation job (or admin) can credit
+    // the user without ambiguity about what's owed.
     const fresh = await User.findByIdAndUpdate(
       user._id,
       { $inc: { balance: cashoutAmount, totalWon: cashoutAmount } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!fresh) return unauthorized();
@@ -70,7 +88,7 @@ export async function POST(
       currency: fresh.currency,
       method: "internal",
       reference: generateReference("CSH"),
-      balanceBefore: fresh.balance - cashoutAmount,
+      balanceBefore: roundMoney(fresh.balance - cashoutAmount),
       balanceAfter: fresh.balance,
       metadata: { betId: bet._id.toString(), reason: "cashout" },
     });

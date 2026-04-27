@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
         ],
       },
       { $inc: { currentRedemptions: 1 } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!updatedPromo) {
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     const fresh = await User.findByIdAndUpdate(
       user._id,
       { $inc: { bonusBalance: bonusAmount } },
-      { new: true }
+      { returnDocument: "after" }
     );
     if (!fresh) return unauthorized();
 

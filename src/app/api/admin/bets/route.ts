@@ -84,7 +84,7 @@ export async function PATCH(req: NextRequest) {
     const user = await User.findByIdAndUpdate(
       bet.userId,
       { $inc: { balance: bet.stake, totalWagered: -bet.stake } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (user) {
@@ -113,7 +113,7 @@ export async function PATCH(req: NextRequest) {
       const user = await User.findByIdAndUpdate(
         bet.userId,
         { $inc: { balance: bet.potentialWin, totalWon: bet.potentialWin } },
-        { new: true }
+        { returnDocument: "after" }
       );
 
       if (user) {

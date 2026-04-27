@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
             "metadata.paystack": data,
           },
         },
-        { new: true }
+        { returnDocument: "after" }
       );
 
       if (!updated) {
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
         {
           $inc: { balance: amount, totalDeposited: amount },
         },
-        { new: true }
+        { returnDocument: "after" }
       );
 
       if (!freshUser) return unauthorized();

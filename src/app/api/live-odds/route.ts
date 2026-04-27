@@ -18,8 +18,12 @@ export async function GET() {
   const stream = new ReadableStream({
     async start(controller) {
       let closed = false;
-      let interval: ReturnType<typeof setInterval>;
-      let timeout: ReturnType<typeof setTimeout>;
+      // Wrapped in a single object so cleanup() can reference timers before
+      // they're created, and so prefer-const is satisfied.
+      const timers: {
+        interval?: ReturnType<typeof setInterval>;
+        timeout?: ReturnType<typeof setTimeout>;
+      } = {};
 
       const enqueue = (data: string) => {
         if (closed) return;
@@ -33,8 +37,8 @@ export async function GET() {
       const cleanup = () => {
         if (closed) return;
         closed = true;
-        clearInterval(interval);
-        clearTimeout(timeout);
+        if (timers.interval) clearInterval(timers.interval);
+        if (timers.timeout) clearTimeout(timers.timeout);
         try { controller.close(); } catch { /* already closed */ }
       };
 
@@ -64,8 +68,8 @@ export async function GET() {
       };
 
       await send();
-      interval = setInterval(send, SSE_INTERVAL_MS);
-      timeout = setTimeout(cleanup, SSE_MAX_DURATION_MS);
+      timers.interval = setInterval(send, SSE_INTERVAL_MS);
+      timers.timeout = setTimeout(cleanup, SSE_MAX_DURATION_MS);
 
       return cleanup;
     },
