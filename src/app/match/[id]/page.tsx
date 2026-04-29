@@ -52,20 +52,28 @@ export default function MatchPage({ params }: { params: Promise<{ id: string }> 
   const [starred, setStarred] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
     fetch(`/api/matches/${id}?markets=true`)
       .then((r) => {
         if (!r.ok) throw new Error("Match not found");
         return r.json();
       })
       .then((data) => {
+        if (cancelled) return;
         setMatch(data.match);
         if (data.marketCategories?.length) {
           setCategories(data.marketCategories);
         }
+        setLoading(false);
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err.message);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (loading) {

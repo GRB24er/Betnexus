@@ -52,43 +52,57 @@ export async function PATCH(req: NextRequest) {
 
   await connectDB();
 
-  const tx = await Transaction.findById(transactionId);
-  if (!tx || tx.type !== "withdrawal") {
-    return NextResponse.json({ error: "Withdrawal not found" }, { status: 404 });
+  const newStatus = action === "approve" ? "success" : "failed";
+  const noteValue = note || (action === "approve" ? "Approved by admin" : "Rejected by admin");
+
+  // Atomically transition the withdrawal so two admins clicking simultaneously
+  // (or a webhook arriving mid-action) cannot double-process it.
+  const tx = await Transaction.findOneAndUpdate(
+    {
+      _id: transactionId,
+      type: "withdrawal",
+      status: { $in: ["pending", "processing"] },
+    },
+    {
+      $set: {
+        status: newStatus,
+        ...(action === "reject" ? { failureReason: noteValue } : {}),
+        "metadata.adminNote": noteValue,
+        "metadata.reviewedBy": auth.user._id,
+        "metadata.reviewedAt": new Date().toISOString(),
+      },
+    },
+    { new: true }
+  );
+
+  if (!tx) {
+    const existing = await Transaction.findById(transactionId);
+    if (!existing || existing.type !== "withdrawal") {
+      return NextResponse.json({ error: "Withdrawal not found" }, { status: 404 });
+    }
+    return NextResponse.json(
+      { error: `Withdrawal already ${existing.status}` },
+      { status: 400 }
+    );
   }
-  if (tx.status !== "pending") {
-    return NextResponse.json({ error: "Withdrawal already processed" }, { status: 400 });
-  }
 
-  if (action === "approve") {
-    tx.status = "success";
-    tx.metadata = { ...(tx.metadata || {}), adminNote: note || "Approved by admin" };
-    await tx.save();
-
-    await logAudit({
-      action: "withdraw.approve",
-      adminId: auth.user._id,
-      userId: tx.userId,
-      details: { transactionId: tx._id, amount: tx.amount },
-    });
-  } else {
-    // Reject — refund the user's balance
-    tx.status = "failed";
-    tx.failureReason = note || "Rejected by admin";
-    tx.metadata = { ...(tx.metadata || {}), adminNote: note || "Rejected by admin" };
-    await tx.save();
-
+  if (action === "reject") {
+    // Refund balance AND revert totalWithdrawn that was incremented at request time.
     await User.findByIdAndUpdate(tx.userId, {
-      $inc: { balance: tx.amount },
-    });
-
-    await logAudit({
-      action: "withdraw.reject",
-      adminId: auth.user._id,
-      userId: tx.userId,
-      details: { transactionId: tx._id, amount: tx.amount, refunded: true },
+      $inc: { balance: tx.amount, totalWithdrawn: -tx.amount },
     });
   }
+
+  await logAudit({
+    action: action === "approve" ? "withdraw.approve" : "withdraw.reject",
+    adminId: auth.user._id,
+    userId: tx.userId,
+    details: {
+      transactionId: tx._id,
+      amount: tx.amount,
+      ...(action === "reject" ? { refunded: true } : {}),
+    },
+  });
 
   return NextResponse.json({ message: `Withdrawal ${action}d successfully` });
 }

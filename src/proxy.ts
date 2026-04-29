@@ -22,19 +22,33 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;
+  const secret = process.env.JWT_SECRET;
+
+  // Fail closed: if JWT_SECRET is missing or too weak, refuse to make any
+  // authentication decisions instead of silently allowing every request through.
+  if (!secret || secret.length < 32) {
+    const isProtected =
+      [...PROTECTED_ROUTES, ...ADMIN_ROUTES].some((r) =>
+        pathname.startsWith(r)
+      );
+    if (isProtected) {
+      return NextResponse.json(
+        { error: "Server misconfigured: JWT_SECRET" },
+        { status: 503 }
+      );
+    }
+    return NextResponse.next();
+  }
 
   // Verify JWT at the edge
   let payload: { sub?: string; role?: string } | null = null;
   if (token) {
     try {
-      const secret = process.env.JWT_SECRET;
-      if (secret) {
-        const { payload: p } = await jwtVerify(
-          token,
-          new TextEncoder().encode(secret)
-        );
-        payload = p as { sub?: string; role?: string };
-      }
+      const { payload: p } = await jwtVerify(
+        token,
+        new TextEncoder().encode(secret)
+      );
+      payload = p as { sub?: string; role?: string };
     } catch {
       // Invalid or expired token — treat as unauthenticated
       payload = null;

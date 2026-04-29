@@ -5,7 +5,6 @@ type RedisCache = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
   var _redisCache: RedisCache | undefined;
 }
 

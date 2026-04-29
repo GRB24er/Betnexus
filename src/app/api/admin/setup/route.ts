@@ -1,30 +1,52 @@
 /**
  * POST /api/admin/setup
  *
- * One-time endpoint to create the very first admin account.
- * This route is ONLY active when:
- *   1. No admin user exists in the database yet, OR
- *   2. The correct ADMIN_SETUP_SECRET is provided in the request body.
+ * Creates or promotes an admin account. Always requires ADMIN_SETUP_SECRET
+ * to be configured AND supplied — including for the very first admin — so that
+ * a freshly-deployed instance cannot be hijacked by whoever hits the endpoint
+ * first. Use scripts/create-admin.mjs for offline bootstrap if preferred.
  *
- * Once an admin exists, this endpoint returns 403 unless the secret is provided.
- * Add ADMIN_SETUP_SECRET to your .env.local to keep this endpoint usable for
- * future admin creation without the script.
- *
- * Body: { firstName, lastName, email, password, secret? }
+ * Body: { firstName, lastName, email, password, secret }
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { connectDB } from "@/lib/mongodb";
 import { User } from "@/models/User";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function constantTimeEqual(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a);
+  const bBuf = Buffer.from(b);
+  if (aBuf.length !== bBuf.length) return false;
+  return crypto.timingSafeEqual(aBuf, bBuf);
+}
+
 export async function POST(req: NextRequest) {
   try {
-    await connectDB();
+    const setupSecret = process.env.ADMIN_SETUP_SECRET;
+    if (!setupSecret || setupSecret.length < 32) {
+      return NextResponse.json(
+        {
+          error:
+            "Admin setup is disabled. Configure ADMIN_SETUP_SECRET (>=32 chars) on the server.",
+        },
+        { status: 503 }
+      );
+    }
 
     const body = await req.json();
     const { firstName, lastName, email, password, secret } = body;
+
+    if (typeof secret !== "string" || !constantTimeEqual(secret, setupSecret)) {
+      return NextResponse.json(
+        { error: "Invalid setup secret" },
+        { status: 403 }
+      );
+    }
+
+    await connectDB();
 
     // ── Validate required fields ────────────────────────────────────────────
     if (!firstName || !lastName || !email || !password) {
@@ -39,23 +61,6 @@ export async function POST(req: NextRequest) {
         { error: "Password must be at least 8 characters" },
         { status: 400 }
       );
-    }
-
-    // ── Check if an admin already exists ───────────────────────────────────
-    const existingAdmin = await User.findOne({ role: "admin" });
-
-    if (existingAdmin) {
-      // An admin already exists — require the setup secret to proceed
-      const setupSecret = process.env.ADMIN_SETUP_SECRET;
-      if (!setupSecret || secret !== setupSecret) {
-        return NextResponse.json(
-          {
-            error:
-              "An admin already exists. Provide the correct ADMIN_SETUP_SECRET to create another admin.",
-          },
-          { status: 403 }
-        );
-      }
     }
 
     // ── Check if email is already taken ────────────────────────────────────

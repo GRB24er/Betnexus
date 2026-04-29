@@ -41,19 +41,23 @@ type RevenueData = {
 export default function AdminRevenuePage() {
   const [data, setData] = useState<Record<string, RevenueData | null>>({});
   const [period, setPeriod] = useState("month");
-  const [loading, setLoading] = useState(true);
 
-  const fetchRevenue = (p: string) => {
-    if (data[p]) { setLoading(false); return; }
-    setLoading(true);
+  useEffect(() => {
+    if (data[period]) return;
+    let cancelled = false;
     api
-      .get<RevenueData>(`/api/admin/revenue?period=${p}`)
-      .then((res) => setData((prev) => ({ ...prev, [p]: res })))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  };
+      .get<RevenueData>(`/api/admin/revenue?period=${period}`)
+      .then((res) => {
+        if (cancelled) return;
+        setData((prev) => ({ ...prev, [period]: res }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [period, data]);
 
-  useEffect(() => { fetchRevenue(period); }, [period]);
+  const loading = !data[period];
 
   const o = data[period]?.overview;
   const txns = data[period]?.recentTransactions || [];

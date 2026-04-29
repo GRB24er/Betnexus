@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ShieldCheck, ShieldX, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -18,15 +18,32 @@ export default function AdminKYCPage() {
   const [loading, setLoading] = useState(true);
   const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
 
-  const fetchDocs = () => {
+  const fetchDocs = useCallback(() => {
     setLoading(true);
-    api.get<{ documents: KYCDoc[] }>("/api/admin/kyc/review?status=pending")
+    return api
+      .get<{ documents: KYCDoc[] }>("/api/admin/kyc/review?status=pending")
       .then((r) => setDocs(r.documents))
       .catch(() => {})
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  useEffect(fetchDocs, []);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ documents: KYCDoc[] }>("/api/admin/kyc/review?status=pending")
+      .then((r) => {
+        if (cancelled) return;
+        setDocs(r.documents);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleReview = async (docId: string, action: "approve" | "reject") => {
     await api.patch("/api/admin/kyc/review", {

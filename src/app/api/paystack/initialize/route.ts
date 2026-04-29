@@ -17,8 +17,12 @@ const initSchema = z.object({
   cryptoAddress: z.string().optional(),
 });
 
-// BTC wallet address for manual deposits
-const BTC_DEPOSIT_ADDRESS = "bc1q6xg84ehyk3sk65vt6sr8fxxtahsp8fa43uay3a";
+// BTC wallet address for manual deposits — sourced from env so the address
+// can be rotated without a code deploy and isn't leaked via the public bundle.
+function getBtcDepositAddress(): string | null {
+  const addr = process.env.BTC_DEPOSIT_ADDRESS;
+  return addr && addr.length > 0 ? addr : null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,6 +47,14 @@ export async function POST(req: NextRequest) {
     // BTC deposits are handled manually — we create a pending transaction
     // and return the wallet address. Admin verifies and credits from dashboard.
     if (method === "btc") {
+      const depositAddress = getBtcDepositAddress();
+      if (!depositAddress) {
+        return NextResponse.json(
+          { error: "BTC deposits are not configured" },
+          { status: 503 }
+        );
+      }
+
       await Transaction.create({
         userId: user._id,
         type: "deposit",
@@ -56,7 +68,7 @@ export async function POST(req: NextRequest) {
         balanceAfter: user.balance,
         metadata: {
           initiatedAt: new Date().toISOString(),
-          depositAddress: BTC_DEPOSIT_ADDRESS,
+          depositAddress,
           manualVerification: true,
         },
       });
@@ -66,14 +78,14 @@ export async function POST(req: NextRequest) {
         action: "deposit.init",
         resource: "transaction",
         resourceId: reference,
-        details: { amount, method: "btc", depositAddress: BTC_DEPOSIT_ADDRESS },
+        details: { amount, method: "btc", depositAddress },
         req,
       });
 
       return NextResponse.json({
         reference,
         method: "btc",
-        depositAddress: BTC_DEPOSIT_ADDRESS,
+        depositAddress,
         manualVerification: true,
       });
     }

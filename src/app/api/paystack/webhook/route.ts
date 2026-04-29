@@ -27,10 +27,14 @@ export async function POST(req: NextRequest) {
     .update(raw)
     .digest("hex");
 
-  // Constant-time comparison to prevent timing attacks
+  // Constant-time comparison to prevent timing attacks.
+  // Length must match before timingSafeEqual or it throws RangeError.
+  const computedBuf = Buffer.from(computed, "hex");
+  const signatureBuf = signature ? Buffer.from(signature, "hex") : null;
   if (
-    !signature ||
-    !crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(signature))
+    !signatureBuf ||
+    signatureBuf.length !== computedBuf.length ||
+    !crypto.timingSafeEqual(computedBuf, signatureBuf)
   ) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }

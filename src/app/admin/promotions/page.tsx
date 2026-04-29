@@ -22,7 +22,7 @@ export default function AdminPromosPage() {
   const [promos, setPromos] = useState<Promo[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     code: "",
     name: "",
     description: "",
@@ -35,17 +35,34 @@ export default function AdminPromosPage() {
     perUserLimit: 1,
     startsAt: new Date().toISOString().slice(0, 16),
     expiresAt: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 16),
-  });
+  }));
 
-  const fetch = () => {
+  const refresh = () => {
     setLoading(true);
-    api.get<{ promos: Promo[] }>("/api/admin/promos")
+    return api
+      .get<{ promos: Promo[] }>("/api/admin/promos")
       .then((r) => setPromos(r.promos))
       .catch(() => {})
       .finally(() => setLoading(false));
   };
 
-  useEffect(fetch, []);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ promos: Promo[] }>("/api/admin/promos")
+      .then((r) => {
+        if (cancelled) return;
+        setPromos(r.promos);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleCreate = async () => {
     await api.post("/api/admin/promos", {
@@ -58,7 +75,7 @@ export default function AdminPromosPage() {
       perUserLimit: Number(form.perUserLimit),
     });
     setShowCreate(false);
-    fetch();
+    refresh();
   };
 
   return (

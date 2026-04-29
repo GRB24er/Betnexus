@@ -25,14 +25,25 @@ export default function AdminAuditPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
     const params = new URLSearchParams({ page: String(page), limit: "30" });
     if (actionFilter) params.set("action", actionFilter);
     api
       .get<{ logs: AuditEntry[]; total: number; pages: number }>(`/api/admin/audit?${params}`)
-      .then((r) => { setLogs(r.logs); setTotal(r.total); setPages(r.pages); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .then((r) => {
+        if (cancelled) return;
+        setLogs(r.logs);
+        setTotal(r.total);
+        setPages(r.pages);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [page, actionFilter]);
 
   return (

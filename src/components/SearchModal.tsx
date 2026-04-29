@@ -40,6 +40,14 @@ export default function SearchModal({
   open: boolean;
   onClose: () => void;
 }) {
+  if (!open) {
+    return null;
+  }
+
+  return <SearchModalBody onClose={onClose} />;
+}
+
+function SearchModalBody({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,12 +55,9 @@ export default function SearchModal({
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
-    if (open) {
-      setQuery("");
-      setResults([]);
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
-  }, [open]);
+    const id = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(id);
+  }, []);
 
   const search = useCallback((q: string) => {
     if (q.length < 2) {
@@ -72,8 +77,6 @@ export default function SearchModal({
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => search(val), 300);
   };
-
-  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 sm:pt-32">

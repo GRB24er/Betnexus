@@ -37,12 +37,21 @@ export default function BetHistoryPage() {
 
   useEffect(() => {
     if (!user) return;
-    setLoading(true);
+    let cancelled = false;
     api
       .get<{ bets: HistoryBet[] }>("/api/bets/history?limit=50")
-      .then((res) => setBets(res.bets))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .then((res) => {
+        if (cancelled) return;
+        setBets(res.bets);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   const filtered =

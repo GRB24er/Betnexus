@@ -18,8 +18,14 @@ export async function GET() {
   const stream = new ReadableStream({
     async start(controller) {
       let closed = false;
-      let interval: ReturnType<typeof setInterval>;
-      let timeout: ReturnType<typeof setTimeout>;
+
+      const cleanup = () => {
+        if (closed) return;
+        closed = true;
+        clearInterval(interval);
+        clearTimeout(timeout);
+        try { controller.close(); } catch { /* already closed */ }
+      };
 
       const enqueue = (data: string) => {
         if (closed) return;
@@ -28,14 +34,6 @@ export async function GET() {
         } catch {
           cleanup();
         }
-      };
-
-      const cleanup = () => {
-        if (closed) return;
-        closed = true;
-        clearInterval(interval);
-        clearTimeout(timeout);
-        try { controller.close(); } catch { /* already closed */ }
       };
 
       const send = async () => {
@@ -64,8 +62,8 @@ export async function GET() {
       };
 
       await send();
-      interval = setInterval(send, SSE_INTERVAL_MS);
-      timeout = setTimeout(cleanup, SSE_MAX_DURATION_MS);
+      const interval = setInterval(send, SSE_INTERVAL_MS);
+      const timeout = setTimeout(cleanup, SSE_MAX_DURATION_MS);
 
       return cleanup;
     },
