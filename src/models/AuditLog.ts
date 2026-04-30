@@ -22,6 +22,11 @@ export type AuditAction =
   | "promo.redeem"
   | "admin.balance_adjust"
   | "admin.odds_update"
+  | "manualMatch.create"
+  | "manualMatch.update"
+  | "manualMatch.delete"
+  | "manualMatch.settle"
+  | "manualMatch.cancel"
   | "referral.signup"
   | "referral.reward";
 

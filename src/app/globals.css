@@ -202,6 +202,23 @@ body {
 }
 .marquee { animation: marquee 30s linear infinite; }
 
+/* Form input — used by ManualMatchManager and other admin forms */
+.input {
+  width: 100%;
+  background: #0f1118;
+  border: 1px solid #2a3050;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: white;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 150ms;
+}
+.input:focus {
+  border-color: rgba(0, 212, 110, 0.5);
+}
+.input::placeholder { color: #5a6485; }
+
 /* Gradient text */
 .text-gradient-green {
   background: linear-gradient(135deg, #00d46e 0%, #00e68a 50%, #00d46e 100%);

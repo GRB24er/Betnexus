@@ -7,10 +7,36 @@ import {
   findSportKeyForEvent,
 } from "@/lib/oddsapi";
 import { findFixture, getMatchLogos } from "@/lib/apifootball";
+import { connectDB } from "@/lib/mongodb";
+import { ManualMatch } from "@/models/ManualMatch";
+import { manualMatchToPublic } from "@/lib/manualMatchToPublic";
 import { serverError } from "@/lib/auth";
+import mongoose from "mongoose";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function buildManualMarketCategories(
+  markets: { key: string; name: string; outcomes: { label: string; odds: number; point?: number }[] }[]
+) {
+  return [
+    {
+      id: "manual",
+      name: "Markets",
+      icon: "🏟️",
+      markets: markets.map((m) => ({
+        key: m.key,
+        name: m.name,
+        outcomes: m.outcomes.map((o) => ({
+          name: o.label,
+          label: o.label,
+          odds: o.odds,
+          point: o.point,
+        })),
+      })),
+    },
+  ];
+}
 
 /**
  * GET /api/matches/[id]?sport=soccer_epl&markets=true
@@ -27,7 +53,28 @@ export async function GET(
     const sportKey = req.nextUrl.searchParams.get("sport");
     const wantMarkets = req.nextUrl.searchParams.get("markets") === "true";
 
-    // First: check the store (instant)
+    // First: check if this is a manual (staff-created) match — they use
+    // ObjectId for their public id, so a quick shape check + DB lookup.
+    if (mongoose.isValidObjectId(id)) {
+      try {
+        await connectDB();
+        const manual = await ManualMatch.findById(id).lean();
+        if (manual) {
+          const publicMatch = manualMatchToPublic(manual);
+          return NextResponse.json({
+            match: publicMatch,
+            sport: manual.sport,
+            ...(wantMarkets
+              ? { marketCategories: buildManualMarketCategories(manual.markets) }
+              : {}),
+          });
+        }
+      } catch (err) {
+        console.warn("[api/matches/[id]] manual lookup failed:", err);
+      }
+    }
+
+    // Then: check the in-memory API store (instant)
     const { live, upcoming } = await getMatches();
     let match = [...live, ...upcoming].find((m) => m.id === id) || null;
     let resolvedSportKey = sportKey || null;

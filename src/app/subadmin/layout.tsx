@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Users,
   Receipt,
+  Trophy,
   Zap,
   LogOut,
   Menu,
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/subadmin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/subadmin/users", label: "My Users", icon: Users },
   { href: "/subadmin/bets", label: "Their Bets", icon: Receipt },
+  { href: "/subadmin/manual-matches", label: "Manual Matches", icon: Trophy },
 ];
 
 function SidebarContent({

@@ -21,6 +21,7 @@ import {
   ArrowDownCircle,
   Settings,
   Banknote,
+  Trophy,
 } from "lucide-react";
 import { useSession, sessionStore } from "@/store/session";
 import type { SessionUser } from "@/store/session";
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/agents", label: "Agents", icon: UserCog },
+  { href: "/admin/manual-matches", label: "Manual Matches", icon: Trophy },
   { href: "/admin/bets", label: "Bets", icon: Receipt },
   { href: "/admin/deposits", label: "Deposits", icon: ArrowDownCircle },
   { href: "/admin/withdrawals", label: "Withdrawals", icon: ArrowUpCircle },
