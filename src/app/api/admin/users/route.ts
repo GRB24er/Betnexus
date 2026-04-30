@@ -80,15 +80,18 @@ export async function PATCH(req: NextRequest) {
     case "set_role":
       user.role = value === "admin" ? "admin" : "user";
       break;
-    case "adjust_balance":
-      if (typeof value !== "number") {
+    case "adjust_balance": {
+      const amount =
+        typeof value === "number" ? value : Number(value?.amount);
+      if (!Number.isFinite(amount)) {
         return NextResponse.json(
-          { error: "Value must be a number" },
+          { error: "Amount must be a number" },
           { status: 400 }
         );
       }
-      user.balance = Math.max(0, user.balance + value);
+      user.balance = Math.max(0, user.balance + amount);
       break;
+    }
     default:
       return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   }
