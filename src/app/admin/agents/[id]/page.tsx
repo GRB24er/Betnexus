@@ -20,10 +20,10 @@ type AgentDetail = {
   earnings: {
     commissionPercent: number;
     referredUsersCount: number;
-    total: { ggr: number; betsCount: number; totalStaked: number };
-    today: { ggr: number };
-    thisWeek: { ggr: number };
-    thisMonth: { ggr: number };
+    total: { deposits: number; depositsCount: number };
+    today: { deposits: number };
+    thisWeek: { deposits: number };
+    thisMonth: { deposits: number };
     subAdminPayout: { total: number; today: number; thisWeek: number; thisMonth: number };
     superAdminPayout: { total: number; today: number; thisWeek: number; thisMonth: number };
   };
@@ -103,10 +103,25 @@ export default function AgentDetailPage({
         </p>
       </div>
 
+      <div className="bg-[#1c2033] border border-[#2a3050] rounded-xl p-5 mb-4">
+        <h3 className="text-[11px] uppercase tracking-wide text-[#8b95b8] mb-3">
+          Deposits from referred users (commission base)
+        </h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <PayoutRow label="Today" value={earnings.today.deposits} />
+          <PayoutRow label="This Week" value={earnings.thisWeek.deposits} />
+          <PayoutRow label="This Month" value={earnings.thisMonth.deposits} />
+          <PayoutRow label="All Time" value={earnings.total.deposits} bold />
+        </div>
+        <p className="text-[10px] text-[#5a6485] mt-3">
+          {earnings.total.depositsCount} successful deposits in total.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <div className="bg-[#1c2033] border border-[#3b82f6]/30 rounded-xl p-5">
           <h3 className="text-[11px] uppercase tracking-wide text-[#3b82f6] mb-3">
-            Owed to Agent ({earnings.commissionPercent}%)
+            Owed to Agent ({earnings.commissionPercent}% of deposits)
           </h3>
           <PayoutRow label="Today" value={earnings.subAdminPayout.today} />
           <PayoutRow label="This Week" value={earnings.subAdminPayout.thisWeek} />
@@ -116,7 +131,7 @@ export default function AgentDetailPage({
 
         <div className="bg-[#1c2033] border border-[#00d46e]/30 rounded-xl p-5">
           <h3 className="text-[11px] uppercase tracking-wide text-[#00d46e] mb-3">
-            Platform Retained ({100 - earnings.commissionPercent}%)
+            Platform Retained ({100 - earnings.commissionPercent}% of deposits)
           </h3>
           <PayoutRow label="Today" value={earnings.superAdminPayout.today} />
           <PayoutRow label="This Week" value={earnings.superAdminPayout.thisWeek} />

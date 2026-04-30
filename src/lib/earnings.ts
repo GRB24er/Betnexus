@@ -1,4 +1,4 @@
-import { Bet } from "@/models/Bet";
+import { Transaction } from "@/models/Transaction";
 import { User } from "@/models/User";
 import Settings from "@/models/Settings";
 import { Types } from "mongoose";
@@ -6,29 +6,26 @@ import { Types } from "mongoose";
 /**
  * Earnings & commission calculations for the sub-admin / agent system.
  *
- * Revenue model: GGR (Gross Gaming Revenue) = settled-bet stakes − payouts
- *   - Bets in status "won" / "cashed_out" reduce GGR by (payout − stake)
- *   - Bets in status "lost" increase GGR by stake
- *   - Bets in status "void" don't count (stake refunded)
- *   - Pending bets don't count (not yet settled)
+ * Revenue model: TOTAL DEPOSITS from a sub-admin's referred users.
+ *   - Source: Transaction { type: "deposit", status: "success" }
+ *   - Bucketed by createdAt (today / week / month / all time)
+ *   - Withdrawals, bets, refunds, and bonuses are NOT subtracted
  *
  * Commission split (configurable in Settings):
- *   subAdmin = GGR × subAdminCommissionPercent / 100
- *   superAdmin = GGR − subAdmin
+ *   subAdmin    = totalDeposits × subAdminCommissionPercent / 100
+ *   superAdmin  = totalDeposits − subAdmin
  */
 
-export type EarningsBucket = {
-  ggr: number;
-  betsCount: number;
-  totalStaked: number;
-  totalPayout: number;
+export type DepositsBucket = {
+  deposits: number;
+  depositsCount: number;
 };
 
 export type EarningsBreakdown = {
-  total: EarningsBucket;
-  today: EarningsBucket;
-  thisWeek: EarningsBucket;
-  thisMonth: EarningsBucket;
+  total: DepositsBucket;
+  today: DepositsBucket;
+  thisWeek: DepositsBucket;
+  thisMonth: DepositsBucket;
 };
 
 export type CommissionedEarnings = EarningsBreakdown & {
@@ -39,11 +36,9 @@ export type CommissionedEarnings = EarningsBreakdown & {
   superAdminPayout: { total: number; today: number; thisWeek: number; thisMonth: number };
 };
 
-const EMPTY: EarningsBucket = {
-  ggr: 0,
-  betsCount: 0,
-  totalStaked: 0,
-  totalPayout: 0,
+const EMPTY: DepositsBucket = {
+  deposits: 0,
+  depositsCount: 0,
 };
 
 function startOfDay(d = new Date()): Date {
@@ -67,8 +62,8 @@ function startOfMonth(d = new Date()): Date {
 }
 
 /**
- * Aggregate GGR for a fixed set of user IDs across the standard time buckets.
- * Uses one Mongo aggregation pipeline so the dashboard is fast.
+ * Aggregate successful deposits for a fixed set of user IDs across the
+ * standard time buckets, in a single Mongo pipeline.
  */
 export async function computeEarningsForUsers(
   userIds: Types.ObjectId[]
@@ -81,88 +76,48 @@ export async function computeEarningsForUsers(
   const week = startOfWeek();
   const month = startOfMonth();
 
-  // Only settled bets count.
   const match = {
     userId: { $in: userIds },
-    status: { $in: ["won", "lost", "cashed_out"] as const },
-    settledAt: { $ne: null },
+    type: "deposit",
+    status: "success",
   };
 
   const pipeline = [
     { $match: match },
     {
       $project: {
-        stake: 1,
-        payout: { $ifNull: ["$payout", 0] },
-        settledAt: 1,
-        // GGR per bet: stake when lost; -(payout-stake) when won/cashed
-        ggrDelta: {
-          $cond: [
-            { $eq: ["$status", "lost"] },
-            "$stake",
-            { $subtract: ["$stake", { $ifNull: ["$payout", 0] }] },
-          ],
-        },
-        isToday: { $gte: ["$settledAt", today] },
-        isWeek: { $gte: ["$settledAt", week] },
-        isMonth: { $gte: ["$settledAt", month] },
+        amount: 1,
+        createdAt: 1,
+        isToday: { $gte: ["$createdAt", today] },
+        isWeek: { $gte: ["$createdAt", week] },
+        isMonth: { $gte: ["$createdAt", month] },
       },
     },
     {
       $group: {
         _id: null,
-        ggr: { $sum: "$ggrDelta" },
-        betsCount: { $sum: 1 },
-        totalStaked: { $sum: "$stake" },
-        totalPayout: { $sum: "$payout" },
-        ggrToday: {
-          $sum: { $cond: ["$isToday", "$ggrDelta", 0] },
-        },
+        deposits: { $sum: "$amount" },
+        depositsCount: { $sum: 1 },
+        depositsToday: { $sum: { $cond: ["$isToday", "$amount", 0] } },
         countToday: { $sum: { $cond: ["$isToday", 1, 0] } },
-        stakedToday: { $sum: { $cond: ["$isToday", "$stake", 0] } },
-        payoutToday: { $sum: { $cond: ["$isToday", "$payout", 0] } },
-        ggrWeek: { $sum: { $cond: ["$isWeek", "$ggrDelta", 0] } },
+        depositsWeek: { $sum: { $cond: ["$isWeek", "$amount", 0] } },
         countWeek: { $sum: { $cond: ["$isWeek", 1, 0] } },
-        stakedWeek: { $sum: { $cond: ["$isWeek", "$stake", 0] } },
-        payoutWeek: { $sum: { $cond: ["$isWeek", "$payout", 0] } },
-        ggrMonth: { $sum: { $cond: ["$isMonth", "$ggrDelta", 0] } },
+        depositsMonth: { $sum: { $cond: ["$isMonth", "$amount", 0] } },
         countMonth: { $sum: { $cond: ["$isMonth", 1, 0] } },
-        stakedMonth: { $sum: { $cond: ["$isMonth", "$stake", 0] } },
-        payoutMonth: { $sum: { $cond: ["$isMonth", "$payout", 0] } },
       },
     },
   ];
 
-  const [agg] = await Bet.aggregate(pipeline);
+  const [agg] = await Transaction.aggregate(pipeline);
   if (!agg) {
     return { total: EMPTY, today: EMPTY, thisWeek: EMPTY, thisMonth: EMPTY };
   }
 
   return {
-    total: {
-      ggr: round(agg.ggr),
-      betsCount: agg.betsCount,
-      totalStaked: round(agg.totalStaked),
-      totalPayout: round(agg.totalPayout),
-    },
-    today: {
-      ggr: round(agg.ggrToday),
-      betsCount: agg.countToday,
-      totalStaked: round(agg.stakedToday),
-      totalPayout: round(agg.payoutToday),
-    },
-    thisWeek: {
-      ggr: round(agg.ggrWeek),
-      betsCount: agg.countWeek,
-      totalStaked: round(agg.stakedWeek),
-      totalPayout: round(agg.payoutWeek),
-    },
-    thisMonth: {
-      ggr: round(agg.ggrMonth),
-      betsCount: agg.countMonth,
-      totalStaked: round(agg.stakedMonth),
-      totalPayout: round(agg.payoutMonth),
-    },
+    total: { deposits: round(agg.deposits), depositsCount: agg.depositsCount },
+    today: { deposits: round(agg.depositsToday), depositsCount: agg.countToday },
+    thisWeek: { deposits: round(agg.depositsWeek), depositsCount: agg.countWeek },
+    thisMonth: { deposits: round(agg.depositsMonth), depositsCount: agg.countMonth },
   };
 }
 
@@ -174,8 +129,9 @@ export async function getCommissionPercent(): Promise<number> {
 }
 
 /**
- * Convenience: compute earnings for the users a given sub-admin referred,
- * split into what the sub-admin is owed and what stays with the super admin.
+ * Convenience: compute deposits-based earnings for the users a given sub-admin
+ * referred, split into what the sub-admin is owed and what stays with the
+ * super admin.
  */
 export async function getSubAdminCommissionedEarnings(
   subAdminId: Types.ObjectId | string
@@ -198,16 +154,16 @@ export async function getSubAdminCommissionedEarnings(
     commissionPercent: percent,
     referredUsersCount: userIds.length,
     subAdminPayout: {
-      total: subAdminCut(earnings.total.ggr),
-      today: subAdminCut(earnings.today.ggr),
-      thisWeek: subAdminCut(earnings.thisWeek.ggr),
-      thisMonth: subAdminCut(earnings.thisMonth.ggr),
+      total: subAdminCut(earnings.total.deposits),
+      today: subAdminCut(earnings.today.deposits),
+      thisWeek: subAdminCut(earnings.thisWeek.deposits),
+      thisMonth: subAdminCut(earnings.thisMonth.deposits),
     },
     superAdminPayout: {
-      total: superAdminCut(earnings.total.ggr),
-      today: superAdminCut(earnings.today.ggr),
-      thisWeek: superAdminCut(earnings.thisWeek.ggr),
-      thisMonth: superAdminCut(earnings.thisMonth.ggr),
+      total: superAdminCut(earnings.total.deposits),
+      today: superAdminCut(earnings.today.deposits),
+      thisWeek: superAdminCut(earnings.thisWeek.deposits),
+      thisMonth: superAdminCut(earnings.thisMonth.deposits),
     },
   };
 }

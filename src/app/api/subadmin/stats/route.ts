@@ -13,7 +13,7 @@ export async function GET() {
   await connectDB();
   const data = await getSubAdminCommissionedEarnings(auth.user._id);
 
-  // Sub-admins only ever see their share. The platform's 40% slice is
+  // Sub-admins only ever see their share. The platform's slice is
   // intentionally omitted from the response.
   return NextResponse.json({
     referredUsersCount: data.referredUsersCount,
@@ -25,11 +25,11 @@ export async function GET() {
       thisWeek: data.subAdminPayout.thisWeek,
       thisMonth: data.subAdminPayout.thisMonth,
     },
-    activity: {
-      total: { betsCount: data.total.betsCount, totalStaked: data.total.totalStaked },
-      today: { betsCount: data.today.betsCount, totalStaked: data.today.totalStaked },
-      thisWeek: { betsCount: data.thisWeek.betsCount, totalStaked: data.thisWeek.totalStaked },
-      thisMonth: { betsCount: data.thisMonth.betsCount, totalStaked: data.thisMonth.totalStaked },
+    deposits: {
+      total: { amount: data.total.deposits, count: data.total.depositsCount },
+      today: { amount: data.today.deposits, count: data.today.depositsCount },
+      thisWeek: { amount: data.thisWeek.deposits, count: data.thisWeek.depositsCount },
+      thisMonth: { amount: data.thisMonth.deposits, count: data.thisMonth.depositsCount },
     },
     currency: auth.user.currency,
   });

@@ -12,16 +12,18 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 
+type DepositBucket = { amount: number; count: number };
+
 type Stats = {
   referredUsersCount: number;
   commissionPercent: number;
   referralCode: string;
   earnings: { total: number; today: number; thisWeek: number; thisMonth: number };
-  activity: {
-    total: { betsCount: number; totalStaked: number };
-    today: { betsCount: number; totalStaked: number };
-    thisWeek: { betsCount: number; totalStaked: number };
-    thisMonth: { betsCount: number; totalStaked: number };
+  deposits: {
+    total: DepositBucket;
+    today: DepositBucket;
+    thisWeek: DepositBucket;
+    thisMonth: DepositBucket;
   };
   currency: string;
 };
@@ -75,7 +77,7 @@ export default function SubAdminDashboard() {
       <div className="mb-6">
         <h1 className="text-xl font-bold text-white">Agent Dashboard</h1>
         <p className="text-xs text-[#5a6485]">
-          Your earnings — {stats.commissionPercent}% commission on the GGR of your referred users.
+          Your earnings — {stats.commissionPercent}% of every deposit your referred users make.
         </p>
       </div>
 
@@ -96,12 +98,12 @@ export default function SubAdminDashboard() {
         </div>
         <p className="text-[10px] text-[#5a6485] mt-2">
           Share this link. Anyone signing up through it is tagged as your user, and you earn{" "}
-          {stats.commissionPercent}% of the platform&apos;s revenue from their bets.
+          {stats.commissionPercent}% of every deposit they make.
         </p>
       </div>
 
       {/* Earnings cards */}
-      <h2 className="text-sm font-semibold text-white mb-3">My Earnings</h2>
+      <h2 className="text-sm font-semibold text-white mb-3">My Earnings ({stats.commissionPercent}% of deposits)</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard label="Today" value={fmt(stats.earnings.today)} icon={Calendar} accent="#00d46e" />
         <StatCard label="This Week" value={fmt(stats.earnings.thisWeek)} icon={TrendingUp} accent="#3b82f6" />
@@ -109,8 +111,17 @@ export default function SubAdminDashboard() {
         <StatCard label="All Time" value={fmt(stats.earnings.total)} icon={DollarSign} accent="#8b5cf6" />
       </div>
 
+      {/* Deposits brought in */}
+      <h2 className="text-sm font-semibold text-white mb-3">Deposits From My Users</h2>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <StatCard label="Today" value={fmt(stats.deposits.today.amount)} icon={Calendar} accent="#00d46e" />
+        <StatCard label="This Week" value={fmt(stats.deposits.thisWeek.amount)} icon={TrendingUp} accent="#3b82f6" />
+        <StatCard label="This Month" value={fmt(stats.deposits.thisMonth.amount)} icon={DollarSign} accent="#f59e0b" />
+        <StatCard label="All Time" value={fmt(stats.deposits.total.amount)} icon={DollarSign} accent="#8b5cf6" />
+      </div>
+
       {/* Activity */}
-      <h2 className="text-sm font-semibold text-white mb-3">My Users&apos; Activity</h2>
+      <h2 className="text-sm font-semibold text-white mb-3">Activity</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           label="Referred Users"
@@ -119,35 +130,25 @@ export default function SubAdminDashboard() {
           accent="#00d46e"
         />
         <StatCard
-          label="Bets Today"
-          value={String(stats.activity.today.betsCount)}
-          icon={Receipt}
+          label="Deposits Today"
+          value={String(stats.deposits.today.count)}
+          icon={DollarSign}
           accent="#3b82f6"
         />
         <StatCard
-          label="Wagered (Month)"
-          value={fmt(stats.activity.thisMonth.totalStaked)}
+          label="Deposits (Month)"
+          value={String(stats.deposits.thisMonth.count)}
           icon={TrendingUp}
           accent="#f59e0b"
         />
         <StatCard
-          label="Wagered (Total)"
-          value={fmt(stats.activity.total.totalStaked)}
+          label="Deposits (Total)"
+          value={String(stats.deposits.total.count)}
           icon={TrendingUp}
           accent="#8b5cf6"
         />
       </div>
     </div>
-  );
-}
-
-function Receipt(props: React.SVGProps<SVGSVGElement>) {
-  // tiny inline icon to avoid pulling another lucide import here
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
-      <path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2H4z" />
-      <path d="M8 7h8M8 11h8M8 15h6" />
-    </svg>
   );
 }
 

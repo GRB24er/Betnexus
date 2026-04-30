@@ -14,7 +14,8 @@ type Agent = {
   status: string;
   createdAt: string;
   referredUsersCount: number;
-  ggr: { total: number; today: number; thisWeek: number; thisMonth: number };
+  deposits: { total: number; today: number; thisWeek: number; thisMonth: number };
+  depositsCount: number;
   subAdminPayout: number;
   superAdminPayout: number;
 };
@@ -22,7 +23,7 @@ type Agent = {
 type Summary = {
   totalAgents: number;
   totalReferredUsers: number;
-  totalGgr: number;
+  totalDeposits: number;
   agentsOwed: number;
   platformRetained: number;
 };
@@ -63,7 +64,8 @@ export default function AdminAgentsPage() {
         <h1 className="text-xl font-bold text-white">Agents (Sub-admins)</h1>
         <p className="text-xs text-[#5a6485]">
           Commission split: <strong className="text-white">{percent}%</strong> agent /{" "}
-          <strong className="text-white">{100 - percent}%</strong> platform — based on GGR from each agent&apos;s referred users.
+          <strong className="text-white">{100 - percent}%</strong> platform — based on{" "}
+          <strong className="text-white">total deposits</strong> made by each agent&apos;s referred users.
         </p>
       </div>
 
@@ -77,8 +79,8 @@ export default function AdminAgentsPage() {
             accent="#00d46e"
           />
           <SummaryCard
-            label="Total GGR"
-            value={summary.totalGgr.toFixed(2)}
+            label="Total Deposits"
+            value={summary.totalDeposits.toFixed(2)}
             icon={TrendingUp}
             accent="#f59e0b"
           />
@@ -119,9 +121,9 @@ export default function AdminAgentsPage() {
                 <th className="text-left px-4 py-3">Agent</th>
                 <th className="text-left px-4 py-3">Code</th>
                 <th className="text-right px-4 py-3">Users</th>
-                <th className="text-right px-4 py-3">GGR (Today)</th>
-                <th className="text-right px-4 py-3">GGR (Month)</th>
-                <th className="text-right px-4 py-3">GGR (Total)</th>
+                <th className="text-right px-4 py-3">Deposits (Today)</th>
+                <th className="text-right px-4 py-3">Deposits (Month)</th>
+                <th className="text-right px-4 py-3">Deposits (Total)</th>
                 <th className="text-right px-4 py-3 text-[#3b82f6]">Owed (Agent)</th>
                 <th className="text-right px-4 py-3 text-[#00d46e]">Kept (You)</th>
                 <th className="text-right px-4 py-3"></th>
@@ -142,9 +144,9 @@ export default function AdminAgentsPage() {
                     </code>
                   </td>
                   <td className="px-4 py-3 text-right">{a.referredUsersCount}</td>
-                  <td className="px-4 py-3 text-right">{a.ggr.today.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-right">{a.ggr.thisMonth.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-right font-semibold">{a.ggr.total.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right">{a.deposits.today.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right">{a.deposits.thisMonth.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right font-semibold">{a.deposits.total.toFixed(2)}</td>
                   <td className="px-4 py-3 text-right text-[#3b82f6] font-semibold">
                     {a.subAdminPayout.toFixed(2)}
                   </td>

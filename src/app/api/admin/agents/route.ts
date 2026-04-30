@@ -60,8 +60,8 @@ export async function GET(req: NextRequest) {
       const userIds = referred.map((u) => u._id);
       const earnings = await computeEarningsForUsers(userIds);
 
-      const subAdminCut = round((earnings.total.ggr * percent) / 100);
-      const superAdminCut = round(earnings.total.ggr - subAdminCut);
+      const subAdminCut = round((earnings.total.deposits * percent) / 100);
+      const superAdminCut = round(earnings.total.deposits - subAdminCut);
 
       return {
         _id: a._id,
@@ -72,12 +72,13 @@ export async function GET(req: NextRequest) {
         status: a.status,
         createdAt: a.createdAt,
         referredUsersCount: userIds.length,
-        ggr: {
-          total: earnings.total.ggr,
-          today: earnings.today.ggr,
-          thisWeek: earnings.thisWeek.ggr,
-          thisMonth: earnings.thisMonth.ggr,
+        deposits: {
+          total: earnings.total.deposits,
+          today: earnings.today.deposits,
+          thisWeek: earnings.thisWeek.deposits,
+          thisMonth: earnings.thisMonth.deposits,
         },
+        depositsCount: earnings.total.depositsCount,
         subAdminPayout: subAdminCut,
         superAdminPayout: superAdminCut,
       };
@@ -100,7 +101,7 @@ export async function GET(req: NextRequest) {
         (s, x) => s + x.referredUsersCount,
         0
       ),
-      totalGgr: round(enriched.reduce((s, x) => s + x.ggr.total, 0)),
+      totalDeposits: round(enriched.reduce((s, x) => s + x.deposits.total, 0)),
       agentsOwed: round(agentsOwed),
       platformRetained: round(platformRetained),
     },
