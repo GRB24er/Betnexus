@@ -16,7 +16,7 @@ export interface IUser {
   kycVerified: boolean;
   kycStatus: "none" | "pending" | "approved" | "rejected";
   twoFactorEnabled: boolean;
-  role: "user" | "admin";
+  role: "user" | "admin" | "subadmin";
   status: "active" | "suspended" | "self-excluded";
   referralCode: string;
   referredBy?: string;
@@ -67,7 +67,7 @@ const UserSchema = new Schema<IUser, UserModel, IUserMethods>(
       default: "none",
     },
     twoFactorEnabled: { type: Boolean, default: false },
-    role: { type: String, enum: ["user", "admin"], default: "user" },
+    role: { type: String, enum: ["user", "admin", "subadmin"], default: "user" },
     status: {
       type: String,
       enum: ["active", "suspended", "self-excluded"],

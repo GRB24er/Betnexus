@@ -32,6 +32,15 @@ type AdminUser = {
   status: string;
   kycStatus: string;
   role: string;
+  referralCode?: string;
+  referredBy?: string;
+  referrer?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+  } | null;
   totalDeposited: number;
   totalWithdrawn: number;
   totalWagered: number;
@@ -222,8 +231,15 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                          u.role === "admin" ? "bg-[#8b5cf6]/10 text-[#8b5cf6]" : "bg-[#2a3050] text-[#5a6485]"
+                          u.role === "admin" ? "bg-[#8b5cf6]/10 text-[#8b5cf6]" :
+                          u.role === "subadmin" ? "bg-[#3b82f6]/10 text-[#3b82f6]" :
+                          "bg-[#2a3050] text-[#5a6485]"
                         }`}>{u.role.toUpperCase()}</span>
+                        {u.referrer && (
+                          <p className="text-[9px] text-[#5a6485] mt-1">
+                            via {u.referrer.firstName} {u.referrer.lastName}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-xs font-bold text-[#00d46e]">GHS {u.balance.toFixed(2)}</td>
                       <td className="px-4 py-3"><StatusBadge status={u.status} /></td>
@@ -256,8 +272,18 @@ export default function AdminUsersPage() {
                             <DollarSign className="w-3 h-3 inline" /> Adjust
                           </button>
                           {u.role === "user" && (
-                            <button onClick={() => { if (confirm(`Promote ${u.firstName} to admin?`)) handleAction(u._id, "set_role", "admin"); }} disabled={actionLoading === u._id} className="text-[10px] px-2 py-1 bg-[#8b5cf6]/10 text-[#8b5cf6] rounded hover:bg-[#8b5cf6]/20 transition-colors disabled:opacity-50">
-                              <Shield className="w-3 h-3 inline" /> Admin
+                            <>
+                              <button onClick={() => { if (confirm(`Make ${u.firstName} a sub-admin (agent)? Their referral code will become the agent link.`)) handleAction(u._id, "set_role", "subadmin"); }} disabled={actionLoading === u._id} className="text-[10px] px-2 py-1 bg-[#3b82f6]/10 text-[#3b82f6] rounded hover:bg-[#3b82f6]/20 transition-colors disabled:opacity-50">
+                                <UserPlus className="w-3 h-3 inline" /> Sub-admin
+                              </button>
+                              <button onClick={() => { if (confirm(`Promote ${u.firstName} to FULL admin? They will have super-admin powers.`)) handleAction(u._id, "set_role", "admin"); }} disabled={actionLoading === u._id} className="text-[10px] px-2 py-1 bg-[#8b5cf6]/10 text-[#8b5cf6] rounded hover:bg-[#8b5cf6]/20 transition-colors disabled:opacity-50">
+                                <Shield className="w-3 h-3 inline" /> Admin
+                              </button>
+                            </>
+                          )}
+                          {u.role === "subadmin" && (
+                            <button onClick={() => { if (confirm(`Revoke sub-admin access for ${u.firstName}? They will become a regular user.`)) handleAction(u._id, "set_role", "user"); }} disabled={actionLoading === u._id} className="text-[10px] px-2 py-1 bg-[#5a6485]/10 text-[#8b95b8] rounded hover:bg-[#5a6485]/20 transition-colors disabled:opacity-50">
+                              Revoke
                             </button>
                           )}
                         </div>
@@ -375,6 +401,18 @@ export default function AdminUsersPage() {
               <DetailRow label="KYC" value={selectedUser.kycStatus || "none"} />
               <DetailRow label="Joined" value={new Date(selectedUser.createdAt).toLocaleDateString()} />
               <DetailRow label="Last Login" value={selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleString() : "Never"} />
+              {selectedUser.referrer && (
+                <DetailRow
+                  label="Brought by"
+                  value={`${selectedUser.referrer.firstName} ${selectedUser.referrer.lastName} (${selectedUser.referrer.role})`}
+                />
+              )}
+              {selectedUser.role === "subadmin" && selectedUser.referralCode && (
+                <DetailRow
+                  label="Agent code"
+                  value={selectedUser.referralCode}
+                />
+              )}
             </div>
             <div className="flex gap-2 flex-wrap">
               {selectedUser.status === "active" ? (

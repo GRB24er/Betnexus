@@ -18,6 +18,8 @@ export interface ISettings extends Document {
   kycThreshold: number;
   referralBonus: number;
   welcomeBonus: number;
+  /** Commission paid to a sub-admin from the GGR of the users they referred (percent, 0-100). */
+  subAdminCommissionPercent: number;
   maintenanceMode: boolean;
   updatedAt: Date;
 }
@@ -41,6 +43,7 @@ const SettingsSchema = new Schema<ISettings>(
     kycThreshold: { type: Number, default: 1000 },
     referralBonus: { type: Number, default: 5 },
     welcomeBonus: { type: Number, default: 100 },
+    subAdminCommissionPercent: { type: Number, default: 60, min: 0, max: 100 },
     maintenanceMode: { type: Boolean, default: false },
   },
   { timestamps: true }

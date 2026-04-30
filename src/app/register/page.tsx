@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Zap, Eye, EyeOff, Mail, Lock, User, Phone, Calendar, Loader2, Gift, Shield, TrendingUp } from "lucide-react";
 import { sessionStore } from "@/store/session";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // ?ref=BNXXXXXX is the agent / referral code. Treat empty/whitespace as none.
+  const referralFromUrl = (searchParams.get("ref") || "").trim().toUpperCase();
+
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -15,6 +19,7 @@ export default function RegisterPage() {
     dob: "",
     password: "",
     confirmPassword: "",
+    referralCode: referralFromUrl,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
@@ -43,6 +48,7 @@ export default function RegisterPage() {
         lastName,
         phone: form.phone,
         dateOfBirth: form.dob,
+        referralCode: form.referralCode || undefined,
       });
       router.push("/account");
     } catch (err) {
@@ -171,6 +177,28 @@ export default function RegisterPage() {
                     <input type="password" value={form.confirmPassword} onChange={(e) => update("confirmPassword", e.target.value)} placeholder="Repeat password" className="w-full bg-[#0f1118] border border-[#2a3050] rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-[#5a6485] focus:outline-none focus:border-[#00d46e]/50 focus:ring-1 focus:ring-[#00d46e]/20 transition-all" required />
                   </div>
                 </div>
+              </div>
+
+              {/* Referral / Agent Code */}
+              <div>
+                <label className="text-[10px] text-[#5a6485] uppercase mb-1 block tracking-wide">
+                  Referral code {referralFromUrl ? "(applied)" : "(optional)"}
+                </label>
+                <div className="relative">
+                  <Gift className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5a6485]" />
+                  <input
+                    type="text"
+                    value={form.referralCode}
+                    onChange={(e) => update("referralCode", e.target.value.toUpperCase())}
+                    placeholder="Enter agent / referral code"
+                    className="w-full bg-[#0f1118] border border-[#2a3050] rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-[#5a6485] focus:outline-none focus:border-[#00d46e]/50 focus:ring-1 focus:ring-[#00d46e]/20 transition-all uppercase"
+                  />
+                </div>
+                {referralFromUrl && (
+                  <p className="text-[10px] text-[#00d46e] mt-1">
+                    You&apos;re signing up via an agent referral.
+                  </p>
+                )}
               </div>
 
               {/* Agreements */}
