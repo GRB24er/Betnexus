@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Zap } from "lucide-react";
 import { useSession } from "@/store/session";
 import { api } from "@/lib/api";
 
@@ -28,6 +28,21 @@ export default function BetHistoryPage() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [bets, setBets] = useState<HistoryBet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cashingOut, setCashingOut] = useState<string | null>(null);
+
+  const handleCashout = async (betId: string) => {
+    setCashingOut(betId);
+    try {
+      await api.post(`/api/bets/${betId}/cashout`, {});
+      // Refresh bets after cashout
+      const res = await api.get<{ bets: HistoryBet[] }>("/api/bets/history?limit=50");
+      setBets(res.bets);
+    } catch {
+      // silently fail — the cashout API returns an error message if not eligible
+    } finally {
+      setCashingOut(null);
+    }
+  };
 
   useEffect(() => {
     if (!sessionLoading && !user) {
@@ -179,9 +194,23 @@ export default function BetHistoryPage() {
                         </p>
                       )}
                       {bet.status === "pending" && (
-                        <p className="text-sm font-bold text-[#ffc107]">
-                          Potential: {cur} {bet.potentialWin.toFixed(2)}
-                        </p>
+                        <div className="flex flex-col items-end gap-1.5">
+                          <p className="text-sm font-bold text-[#ffc107]">
+                            Potential: {cur} {bet.potentialWin.toFixed(2)}
+                          </p>
+                          <button
+                            onClick={() => handleCashout(bet._id)}
+                            disabled={cashingOut === bet._id}
+                            className="flex items-center gap-1 px-2.5 py-1 bg-[#ffc107]/10 border border-[#ffc107]/30 text-[#ffc107] rounded-lg text-[10px] font-semibold hover:bg-[#ffc107]/20 transition-colors disabled:opacity-50"
+                          >
+                            {cashingOut === bet._id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Zap className="w-3 h-3" />
+                            )}
+                            Cash Out
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

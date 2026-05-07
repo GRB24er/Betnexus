@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { logAudit } from "@/lib/audit";
 import { generateReference } from "@/lib/reference";
 import { sendBetResult } from "@/lib/email";
+import { createNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,6 +101,13 @@ export async function PATCH(req: NextRequest) {
         balanceAfter: user.balance,
         metadata: { betId: bet._id.toString(), reason: "void" },
       });
+      void createNotification({
+        userId: bet.userId,
+        type: "bet_void",
+        title: "Bet voided — stake refunded",
+        message: `Your bet of ${bet.currency} ${bet.stake.toFixed(2)} on ${bet.selections[0]?.match ?? "your bet"} has been voided and your stake refunded.`,
+        metadata: { betId: bet._id.toString(), amount: bet.stake },
+      });
     }
   } else if (action === "settle" && result) {
     const isWon = result === "won";
@@ -140,6 +148,13 @@ export async function PATCH(req: NextRequest) {
           bet.potentialWin,
           bet.currency
         ).catch(() => {});
+        void createNotification({
+          userId: bet.userId,
+          type: "bet_won",
+          title: `You won ${bet.currency} ${bet.potentialWin.toFixed(2)}!`,
+          message: `Your bet on ${bet.selections[0]?.match ?? "your bet"} has won. ${bet.currency} ${bet.potentialWin.toFixed(2)} has been credited to your account.`,
+          metadata: { betId: bet._id.toString(), amount: bet.potentialWin },
+        });
       }
     } else {
       await bet.save();
@@ -156,6 +171,13 @@ export async function PATCH(req: NextRequest) {
           0,
           bet.currency
         ).catch(() => {});
+        void createNotification({
+          userId: bet.userId,
+          type: "bet_lost",
+          title: `Bet settled — ${bet.selections[0]?.match ?? "your bet"}`,
+          message: `Your bet of ${bet.currency} ${bet.stake.toFixed(2)} on ${bet.selections[0]?.match ?? "your bet"} did not win this time.`,
+          metadata: { betId: bet._id.toString(), stake: bet.stake },
+        });
       }
     }
   } else {

@@ -8,6 +8,7 @@ import { generateReference } from "@/lib/reference";
 import { rateLimit, PAYMENT_RATE_LIMIT } from "@/lib/rateLimit";
 import { logAudit } from "@/lib/audit";
 import { sendWithdrawalRequest } from "@/lib/email";
+import { createNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -119,6 +120,13 @@ export async function POST(req: NextRequest) {
       method,
       reference
     ).catch(() => {});
+    void createNotification({
+      userId: fresh._id,
+      type: "withdrawal",
+      title: "Withdrawal Request Submitted",
+      message: `Your withdrawal of ${fresh.currency} ${amount.toFixed(2)} via ${method.replace(/_/g, " ")} is being processed. Reference: ${reference}.`,
+      metadata: { amount, method, reference },
+    });
 
     return NextResponse.json({
       reference: tx.reference,

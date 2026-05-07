@@ -1,9 +1,9 @@
 import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: process.env.SMTP_SECURE === "true",
+  host: process.env.SMTP_HOST || "smtp.hostinger.com",
+  port: Number(process.env.SMTP_PORT || 465),
+  secure: process.env.SMTP_SECURE !== "false",
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -184,4 +184,22 @@ export async function sendKYCStatusEmail(
     ${!isApproved ? `<p style="text-align:center;margin:30px 0"><a href="${APP_URL}/account/kyc" class="btn">Resubmit Documents</a></p>` : ""}
   `);
   await sendMail(to, `KYC Verification ${isApproved ? "Approved" : "Update"}`, html);
+}
+
+export async function sendPasswordResetEmail(
+  to: string,
+  firstName: string,
+  resetUrl: string
+) {
+  const html = baseTemplate(`
+    <h2>Reset Your Password</h2>
+    <p>Hi ${firstName},</p>
+    <p>We received a request to reset the password for your BetNexus account. Click the button below to set a new password. This link is valid for <strong>1 hour</strong>.</p>
+    <p style="text-align:center;margin:30px 0">
+      <a href="${resetUrl}" class="btn">Reset Password</a>
+    </p>
+    <p>If you did not request a password reset, you can safely ignore this email. Your password will not be changed.</p>
+    <p style="font-size:12px;color:#5a6485">If the button above doesn't work, copy and paste this link into your browser:<br>${resetUrl}</p>
+  `);
+  await sendMail(to, "Reset your BetNexus password", html);
 }

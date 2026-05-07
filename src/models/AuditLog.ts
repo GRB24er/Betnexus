@@ -9,6 +9,7 @@ export type AuditAction =
   | "user.kyc_submit"
   | "user.kyc_approve"
   | "user.kyc_reject"
+  | "user.limits_update"
   | "bet.place"
   | "bet.cashout"
   | "bet.settle"

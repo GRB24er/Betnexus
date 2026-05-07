@@ -6,6 +6,7 @@ import { User } from "@/models/User";
 import { fromMinorUnit } from "@/lib/paystack";
 import { logAudit } from "@/lib/audit";
 import { sendDepositConfirmation } from "@/lib/email";
+import { createNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -111,6 +112,13 @@ export async function POST(req: NextRequest) {
             tx.reference,
             user.balance
           ).catch(() => {});
+          void createNotification({
+            userId: tx.userId,
+            type: "deposit",
+            title: "Deposit Successful",
+            message: `${user.currency} ${amount.toFixed(2)} has been added to your account via ${tx.method.replace(/_/g, " ")}.`,
+            metadata: { amount, method: tx.method, reference: tx.reference },
+          });
         }
       }
     }
@@ -162,6 +170,13 @@ export async function POST(req: NextRequest) {
           resourceId: tx.reference,
           details: { reason: event.event },
           req,
+        });
+        void createNotification({
+          userId: tx.userId,
+          type: "withdrawal_failed",
+          title: "Withdrawal Failed — Funds Returned",
+          message: `Your withdrawal of ${tx.amount.toFixed(2)} could not be processed. Your funds have been returned to your account.`,
+          metadata: { amount: tx.amount, reference: tx.reference },
         });
       }
     }
