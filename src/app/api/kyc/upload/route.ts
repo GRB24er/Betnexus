@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { connectDB } from "@/lib/mongodb";
 import { KYCDocument } from "@/models/KYC";
 import { User } from "@/models/User";
@@ -21,10 +19,13 @@ const ALLOWED_TYPES: Record<string, string> = {
   "application/pdf": "pdf",
 };
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 
-const UPLOAD_DIR = path.join(process.cwd(), "uploads", "kyc");
-
+/**
+ * POST /api/kyc/upload
+ * Stores KYC documents as base64 data URIs in MongoDB.
+ * Safe for Vercel serverless — no filesystem writes.
+ */
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
@@ -71,25 +72,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await mkdir(UPLOAD_DIR, { recursive: true });
-
-    // Use a safe, deterministic filename — no user-supplied extension
-    const fileName = `${user._id}_${docType}_${Date.now()}.${safeExt}`;
-    const filePath = path.join(UPLOAD_DIR, fileName);
-
-    // Ensure the resolved path stays within UPLOAD_DIR (path traversal guard)
-    if (!filePath.startsWith(UPLOAD_DIR)) {
-      return badRequest("Invalid file path");
-    }
-
+    // Convert file to base64 data URI — safe for serverless environments
     const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(filePath, buffer);
+    const base64 = buffer.toString("base64");
+    const dataUri = `data:${file.type};base64,${base64}`;
+    const fileName = `${user._id}_${docType}_${Date.now()}.${safeExt}`;
 
     const kycDoc = await KYCDocument.create({
       userId: user._id,
       docType,
       fileName,
-      fileUrl: `/uploads/kyc/${fileName}`,
+      fileUrl: dataUri,
       fileSize: file.size,
       mimeType: file.type,
       status: "pending",

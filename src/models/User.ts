@@ -29,6 +29,8 @@ export interface IUser {
   totalWon: number;
   totalReferrals: number;
   lastLoginAt?: Date;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -84,6 +86,8 @@ const UserSchema = new Schema<IUser, UserModel, IUserMethods>(
     totalWon: { type: Number, default: 0 },
     totalReferrals: { type: Number, default: 0 },
     lastLoginAt: { type: Date },
+    passwordResetToken: { type: String, select: false },
+    passwordResetExpires: { type: Date, select: false },
   },
   { timestamps: true }
 );
