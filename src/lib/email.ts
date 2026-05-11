@@ -186,6 +186,61 @@ export async function sendKYCStatusEmail(
   await sendMail(to, `KYC Verification ${isApproved ? "Approved" : "Update"}`, html);
 }
 
+export async function sendAdminMessageEmail(
+  to: string,
+  firstName: string,
+  subject: string,
+  bodyMarkup: string
+) {
+  const html = baseTemplate(`
+    <h2>${subject}</h2>
+    <p>Hi ${firstName},</p>
+    <div style="color:#8b95b8;line-height:1.7">${bodyMarkup}</div>
+    <p style="margin-top:30px">— ${APP_NAME} Team</p>
+  `);
+  await sendMail(to, subject, html);
+}
+
+export async function sendAccountBlockedEmail(
+  to: string,
+  firstName: string,
+  reason?: string
+) {
+  const html = baseTemplate(`
+    <h2 style="color:#ff4757">Your account has been blocked</h2>
+    <p>Hi ${firstName},</p>
+    <p>Your ${APP_NAME} account has been blocked by an administrator.</p>
+    ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
+    <p>If you believe this is a mistake, please contact support.</p>
+  `);
+  await sendMail(to, `${APP_NAME}: Your account has been blocked`, html);
+}
+
+export async function sendSubadminWelcomeEmail(
+  to: string,
+  firstName: string,
+  commissionRate: number,
+  referralCode: string,
+  tempPassword: string
+) {
+  const html = baseTemplate(`
+    <h2>Welcome to the ${APP_NAME} Sub-Admin program, ${firstName}! 🎯</h2>
+    <p>Your sub-admin account has been created. Earn <strong style="color:#00d46e">${commissionRate}%</strong> on every deposit and stake from users you refer.</p>
+    <div style="text-align:center;margin:20px 0">
+      <div class="stat">
+        <div class="stat-label">Your Referral Code</div>
+        <div class="stat-value">${referralCode}</div>
+      </div>
+    </div>
+    <p>Your temporary password is: <strong>${tempPassword}</strong></p>
+    <p style="text-align:center;margin:30px 0">
+      <a href="${APP_URL}/login" class="btn">Login to your Sub-Admin Dashboard</a>
+    </p>
+    <p>Please change your password immediately after first login.</p>
+  `);
+  await sendMail(to, `Welcome to the ${APP_NAME} Sub-Admin program`, html);
+}
+
 export async function sendPasswordResetEmail(
   to: string,
   firstName: string,

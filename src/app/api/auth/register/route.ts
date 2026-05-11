@@ -12,6 +12,8 @@ import {
 import { rateLimit, AUTH_RATE_LIMIT } from "@/lib/rateLimit";
 import { logAudit } from "@/lib/audit";
 import { sendWelcomeEmail } from "@/lib/email";
+import { getIdentity } from "@/lib/clientIdentity";
+import { isBanned } from "@/lib/banlist";
 
 export const runtime = "nodejs";
 
@@ -62,6 +64,20 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
+    const { ip, deviceFingerprint } = getIdentity(req);
+    const ban = await isBanned(ip, deviceFingerprint);
+    if (ban.banned) {
+      return NextResponse.json(
+        {
+          error:
+            ban.type === "device"
+              ? "This device is banned and cannot create new accounts."
+              : "This network is banned and cannot create new accounts.",
+        },
+        { status: 403 }
+      );
+    }
+
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) {
       return badRequest("An account with this email already exists");
@@ -89,6 +105,9 @@ export async function POST(req: NextRequest) {
         country: country || "Ghana",
         lastLoginAt: new Date(),
         referredBy: referrerId,
+        lastIp: ip,
+        knownIps: ip && ip !== "unknown" ? [ip] : [],
+        knownDevices: deviceFingerprint ? [deviceFingerprint] : [],
       });
     } catch (err: unknown) {
       // Handle MongoDB duplicate key error (race condition on email uniqueness)

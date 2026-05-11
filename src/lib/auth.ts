@@ -16,7 +16,7 @@ function getJwtSecret(): string {
 export type JwtPayload = {
   sub: string;
   email: string;
-  role: "user" | "admin";
+  role: "user" | "admin" | "subadmin";
 };
 
 export function signToken(payload: JwtPayload): string {

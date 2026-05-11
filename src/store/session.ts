@@ -11,7 +11,7 @@ export type SessionUser = {
   balance: number;
   currency: string;
   kycVerified: boolean;
-  role: "user" | "admin";
+  role: "user" | "admin" | "subadmin";
   totalDeposited: number;
   totalWithdrawn: number;
   totalWagered: number;

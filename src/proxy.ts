@@ -10,8 +10,10 @@ const PROTECTED_ROUTES = [
   "/promotions",
 ];
 
-// Routes that require admin role
+// Routes that require admin role (super-admin only)
 const ADMIN_ROUTES = ["/admin"];
+// Routes that require sub-admin (or admin) role
+const SUBADMIN_ROUTES = ["/subadmin"];
 
 // Routes that should redirect to /home if already authenticated
 const AUTH_ROUTES = ["/login", "/register"];
@@ -36,23 +38,26 @@ export async function proxy(req: NextRequest) {
         payload = p as { sub?: string; role?: string };
       }
     } catch {
-      // Invalid or expired token — treat as unauthenticated
       payload = null;
     }
   }
 
   const isAuthenticated = !!payload?.sub;
-  const isAdmin = payload?.role === "admin";
+  const role = payload?.role;
+  const isAdmin = role === "admin";
+  const isSubadmin = role === "subadmin";
 
-  // Redirect authenticated users away from login/register
   if (AUTH_ROUTES.some((r) => pathname.startsWith(r))) {
     if (isAuthenticated) {
+      if (isAdmin) return NextResponse.redirect(new URL("/admin", req.url));
+      if (isSubadmin)
+        return NextResponse.redirect(new URL("/subadmin", req.url));
       return NextResponse.redirect(new URL("/", req.url));
     }
     return NextResponse.next();
   }
 
-  // Protect admin routes
+  // Admin routes — admin only. Sub-admins must not see super-admin data.
   if (ADMIN_ROUTES.some((r) => pathname.startsWith(r))) {
     if (!isAuthenticated) {
       const loginUrl = new URL("/login", req.url);
@@ -60,12 +65,25 @@ export async function proxy(req: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
     if (!isAdmin) {
+      if (isSubadmin) return NextResponse.redirect(new URL("/subadmin", req.url));
       return NextResponse.redirect(new URL("/", req.url));
     }
     return NextResponse.next();
   }
 
-  // Protect user routes
+  // Sub-admin routes — sub-admin OR admin
+  if (SUBADMIN_ROUTES.some((r) => pathname.startsWith(r))) {
+    if (!isAuthenticated) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (!isSubadmin && !isAdmin) {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+    return NextResponse.next();
+  }
+
   if (PROTECTED_ROUTES.some((r) => pathname.startsWith(r))) {
     if (!isAuthenticated) {
       const loginUrl = new URL("/login", req.url);
@@ -80,14 +98,6 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico
-     * - public folder files
-     * - API routes (protected at the handler level)
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)",
   ],
 };

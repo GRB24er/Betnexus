@@ -168,6 +168,15 @@ export default function Sidebar() {
             Admin Dashboard
           </Link>
         )}
+        {user?.role === "subadmin" && (
+          <Link
+            href="/subadmin"
+            className="flex items-center justify-center gap-2 w-full bg-[#06b6d4]/10 border border-[#06b6d4]/30 text-[#06b6d4] font-semibold text-sm py-2.5 rounded-lg hover:bg-[#06b6d4]/20 transition-all text-center"
+          >
+            <Shield className="w-4 h-4" />
+            Sub-Admin Dashboard
+          </Link>
+        )}
         <Link
           href="/deposit"
           className="flex items-center justify-center gap-2 w-full gradient-green text-white font-bold text-sm py-3 rounded-xl hover:opacity-90 transition-all glow-green"

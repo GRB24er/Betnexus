@@ -116,6 +116,15 @@ export default function Header() {
               <Shield className="w-5 h-5" />
             </Link>
           )}
+          {user?.role === "subadmin" && (
+            <Link
+              href="/subadmin"
+              className="p-2.5 text-[#06b6d4] hover:text-[#22d3ee] transition-colors min-w-[44px] min-h-[44px] items-center justify-center hidden sm:flex"
+              title="Sub-Admin Dashboard"
+            >
+              <Shield className="w-5 h-5" />
+            </Link>
+          )}
 
           {/* User */}
           <Link href="/account" className="p-2.5 text-[#8b95b8] hover:text-white transition-colors min-w-[44px] min-h-[44px] items-center justify-center hidden sm:flex">
@@ -194,6 +203,16 @@ export default function Header() {
               >
                 <Shield className="w-5 h-5" />
                 Admin Dashboard
+              </Link>
+            )}
+            {user?.role === "subadmin" && (
+              <Link
+                href="/subadmin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-3 py-3 rounded-lg mb-1 text-sm font-medium text-[#06b6d4] hover:bg-[#06b6d4]/10 transition-all mt-2"
+              >
+                <Shield className="w-5 h-5" />
+                Sub-Admin Dashboard
               </Link>
             )}
 

@@ -2,11 +2,15 @@ import mongoose, { Schema, Model, HydratedDocument } from "mongoose";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
+export type UserRole = "user" | "admin" | "subadmin";
+export type UserStatus = "active" | "suspended" | "self-excluded" | "blocked";
+
 export interface IUser {
   email: string;
   password: string;
   firstName: string;
   lastName: string;
+  username?: string;
   phone?: string;
   dateOfBirth?: Date;
   country?: string;
@@ -16,8 +20,8 @@ export interface IUser {
   kycVerified: boolean;
   kycStatus: "none" | "pending" | "approved" | "rejected";
   twoFactorEnabled: boolean;
-  role: "user" | "admin";
-  status: "active" | "suspended" | "self-excluded";
+  role: UserRole;
+  status: UserStatus;
   referralCode: string;
   referredBy?: string;
   depositLimit?: number;
@@ -31,6 +35,23 @@ export interface IUser {
   lastLoginAt?: Date;
   passwordResetToken?: string;
   passwordResetExpires?: Date;
+
+  // Sub-admin fields
+  commissionRate: number;
+  commissionFromStakes: number;
+  commissionFromDeposits: number;
+  commissionPaidOut: number;
+  payoutDay: number;
+  nextPayoutDate?: Date;
+  createdBySubadmin?: mongoose.Types.ObjectId;
+
+  // IP / device tracking and ban controls
+  lastIp?: string;
+  knownIps: string[];
+  knownDevices: string[];
+  blockedReason?: string;
+  blockedAt?: Date;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,7 +77,8 @@ const UserSchema = new Schema<IUser, UserModel, IUserMethods>(
     password: { type: String, required: true, select: false },
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, required: true, trim: true },
-    phone: { type: String, trim: true },
+    username: { type: String, trim: true, sparse: true, index: true },
+    phone: { type: String, trim: true, index: true },
     dateOfBirth: { type: Date },
     country: { type: String, default: "Ghana" },
     balance: { type: Number, default: 0, min: 0 },
@@ -69,14 +91,19 @@ const UserSchema = new Schema<IUser, UserModel, IUserMethods>(
       default: "none",
     },
     twoFactorEnabled: { type: Boolean, default: false },
-    role: { type: String, enum: ["user", "admin"], default: "user" },
+    role: {
+      type: String,
+      enum: ["user", "admin", "subadmin"],
+      default: "user",
+      index: true,
+    },
     status: {
       type: String,
-      enum: ["active", "suspended", "self-excluded"],
+      enum: ["active", "suspended", "self-excluded", "blocked"],
       default: "active",
     },
     referralCode: { type: String, unique: true, sparse: true, index: true },
-    referredBy: { type: String },
+    referredBy: { type: String, index: true },
     depositLimit: { type: Number },
     lossLimit: { type: Number },
     sessionLimit: { type: Number },
@@ -88,11 +115,26 @@ const UserSchema = new Schema<IUser, UserModel, IUserMethods>(
     lastLoginAt: { type: Date },
     passwordResetToken: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
+
+    // Sub-admin fields
+    commissionRate: { type: Number, default: 0, min: 0, max: 100 },
+    commissionFromStakes: { type: Number, default: 0 },
+    commissionFromDeposits: { type: Number, default: 0 },
+    commissionPaidOut: { type: Number, default: 0 },
+    payoutDay: { type: Number, default: 1, min: 1, max: 31 },
+    nextPayoutDate: { type: Date },
+    createdBySubadmin: { type: Schema.Types.ObjectId, ref: "User" },
+
+    // IP / device tracking
+    lastIp: { type: String, index: true },
+    knownIps: { type: [String], default: [] },
+    knownDevices: { type: [String], default: [] },
+    blockedReason: { type: String },
+    blockedAt: { type: Date },
   },
   { timestamps: true }
 );
 
-// Compound indexes for common admin queries
 UserSchema.index({ status: 1, createdAt: -1 });
 UserSchema.index({ kycStatus: 1, createdAt: -1 });
 UserSchema.index({ role: 1 });
